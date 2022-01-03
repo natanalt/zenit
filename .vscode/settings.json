@@ -1,0 +1,8 @@
+{
+    "rust-analyzer.files.excludeDirs": [
+        "target"
+    ],
+    "files.watcherExclude": {
+        "${workspaceFolder}/target/debug/**": true,
+    }
+}
