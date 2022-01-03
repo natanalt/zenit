@@ -54,16 +54,16 @@ pub enum LuaType {
 
 impl LuaType {
     pub fn from_c_constant(value: i32) -> Option<LuaType> {
-        match value {
-            LUA_TNIL => Some(LuaType::Nil),
-            LUA_TNUMBER => Some(LuaType::Number),
-            LUA_TBOOLEAN => Some(LuaType::Boolean),
-            LUA_TSTRING => Some(LuaType::String),
-            LUA_TTABLE => Some(LuaType::Table),
-            LUA_TFUNCTION => Some(LuaType::Function),
-            LUA_TUSERDATA => Some(LuaType::UserData),
-            LUA_TTHREAD => Some(LuaType::Thread),
-            LUA_TLIGHTUSERDATA => Some(LuaType::LightUserData),
+        match value as u32 {
+            ffi::LUA_TNIL => Some(LuaType::Nil),
+            ffi::LUA_TNUMBER => Some(LuaType::Number),
+            ffi::LUA_TBOOLEAN => Some(LuaType::Boolean),
+            ffi::LUA_TSTRING => Some(LuaType::String),
+            ffi::LUA_TTABLE => Some(LuaType::Table),
+            ffi::LUA_TFUNCTION => Some(LuaType::Function),
+            ffi::LUA_TUSERDATA => Some(LuaType::UserData),
+            ffi::LUA_TTHREAD => Some(LuaType::Thread),
+            ffi::LUA_TLIGHTUSERDATA => Some(LuaType::LightUserData),
             _ => None,
         }
     }
