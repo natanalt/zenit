@@ -6,6 +6,7 @@ pub mod lua;
 pub mod namespace;
 pub mod renderer;
 pub mod utils;
+pub mod console;
 
 pub type AnyResult<T> = anyhow::Result<T>;
 

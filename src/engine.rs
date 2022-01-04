@@ -12,9 +12,26 @@ use winit::{
 
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
+#[derive(Debug, Clone, Copy)]
+pub enum LoadingTarget {
+    /// Aka. the menu
+    Shell,
+    Ingame,
+}
+
+#[derive(Debug, Clone)]
+pub enum GameState {
+    /// Aka. the menu
+    Shell,
+    Ingame,
+    Loading(LoadingTarget),
+}
+
 pub struct Engine {
     exit_requested: bool,
     min_frame_time: Duration,
+
+    current_state: Option<GameState>,
 
     renderer: Option<Arc<Renderer>>,
 }
@@ -24,6 +41,7 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             exit_requested: false,
+            current_state: None,
             min_frame_time: Duration::from_secs_f32(1.0 / 60.0),
             renderer: None,
         }
@@ -57,9 +75,8 @@ pub fn run() {
                 frame_start = Instant::now();
 
                 if cause == StartCause::Init {
-                    engine.renderer = Some(Arc::new(pollster::block_on(
-                        Renderer::new(&window),
-                    )));
+                    info!("Initializing the game...");
+                    engine.renderer = Some(Arc::new(pollster::block_on(Renderer::new(&window))));
                 }
             }
 
@@ -72,10 +89,10 @@ pub fn run() {
                         engine.exit();
                     }
                     //WindowEvent::Resized(_physical_size) => {
-                        //resize(*physical_size);
+                    //resize(*physical_size);
                     //}
                     //WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        //resize(**new_inner_size);
+                    //resize(**new_inner_size);
                     //}
                     _ => {}
                 }
@@ -86,7 +103,6 @@ pub fn run() {
 
                 _delta = Instant::now().duration_since(frame_start);
                 total_runtime += _delta;
-
                 if _delta < engine.min_frame_time {
                     let sleep_time = engine.min_frame_time - _delta;
                     *cf = ControlFlow::WaitUntil(Instant::now() + sleep_time);
