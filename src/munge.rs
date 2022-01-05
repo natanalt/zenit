@@ -4,6 +4,7 @@
 
 use crate::{unwrap_or_return, utils::PrimitiveReader};
 use byteorder::{ByteOrder, LE};
+use log::error;
 use std::fmt::{Debug, Display};
 
 /// Represents a node in a munged level tree
@@ -41,8 +42,7 @@ impl<'s> TreeNode<'s> {
     /// Attempts to parse this node's children - if it has any. If the reading process fails (most likely because the
     /// node doesn't contain a valid hierarchy), `None` is returned.
     pub fn parse_children(&self) -> Option<Vec<TreeNode<'s>>> {
-        let first_attempt =
-            Self::parse_children_inner(PrimitiveReader::new(self.data), None);
+        let first_attempt = Self::parse_children_inner(PrimitiveReader::new(self.data), None);
         if first_attempt.is_some() {
             first_attempt
         } else {
@@ -58,7 +58,7 @@ impl<'s> TreeNode<'s> {
         mut parser: PrimitiveReader<'s, LE>,
         node_limit: Option<u32>,
     ) -> Option<Vec<TreeNode<'s>>> {
-        let node_limit = node_limit.or(Some(u32::MAX)).unwrap();
+        let node_limit = node_limit.unwrap_or(u32::MAX);
         let mut parsed_so_far = 0;
         let mut result = Vec::new();
 
@@ -75,7 +75,7 @@ impl<'s> TreeNode<'s> {
             let name = NodeName::from(unwrap_or_return!(parser.read_u32(), None));
             let size = unwrap_or_return!(parser.read_u32(), None);
             if size as usize > parser.remaining_bytes() {
-                println!("Parsing failed: invalid size {:#?}: {:x}", name, size);
+                error!("Parsing failed: invalid size {:#?}: {:x}", name, size);
                 return None;
             }
 
@@ -148,6 +148,10 @@ impl TryInto<String> for NodeName {
     type Error = ();
 
     fn try_into(self) -> Result<String, Self::Error> {
+        fn is_accepted_name_char(c: char) -> bool {
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '_')
+        }
+
         let mut result = String::with_capacity(4);
         for c in self.raw {
             if is_accepted_name_char(c as char) {
@@ -158,10 +162,6 @@ impl TryInto<String> for NodeName {
         }
         Ok(result)
     }
-}
-
-fn is_accepted_name_char(c: char) -> bool {
-    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '_')
 }
 
 impl Display for NodeName {

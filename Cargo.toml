@@ -11,15 +11,18 @@ links = "lua"
 anyhow = "1.0"
 thiserror = "1.0"
 log = "0.4"
-simple_logger = "1.15" # will be replaced
 winit = "0.25"
-wgpu = "0.11"
-pollster = "0.2"
 byteorder = "1.4"
 lazy_static = "1.4"
 libc = "0.2"
-spin_sleep = "1.0"
-memmap2 = "0.5"
+simple_logger = "1.15" # will be replaced
+vulkano = "0.27"
+vulkano-shaders = "0.27" # may be replaced by calling glslc from build.rs?
+vulkano-win = "0.27"
+#pollster = "0.2"
+#wgpu = "0.11"
+#spin_sleep = "1.0"
+#memmap2 = "0.5"
 
 [build-dependencies]
 cc = "1.0"

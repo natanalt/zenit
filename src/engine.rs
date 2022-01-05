@@ -1,6 +1,7 @@
-use crate::renderer::Renderer;
+use crate::{renderer::Renderer, shell::ShellState, console::Console};
 use log::info;
 use std::{
+    mem,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -14,26 +15,25 @@ pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy)]
 pub enum LoadingTarget {
-    /// Aka. the menu
     Shell,
     Ingame,
 }
 
 #[derive(Debug, Clone)]
 pub enum GameState {
-    /// Aka. the menu
-    Shell,
+    Invalid,
+    Shell(ShellState),
     Ingame,
     Loading(LoadingTarget),
 }
 
 pub struct Engine {
     exit_requested: bool,
-    min_frame_time: Duration,
+    pub min_frame_time: Duration,
+    current_state: GameState,
 
-    current_state: Option<GameState>,
-
-    renderer: Option<Arc<Renderer>>,
+    pub console: Console,
+    pub renderer: Option<Arc<Renderer>>,
 }
 
 impl Engine {
@@ -41,8 +41,10 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             exit_requested: false,
-            current_state: None,
             min_frame_time: Duration::from_secs_f32(1.0 / 60.0),
+            current_state: GameState::Loading(LoadingTarget::Shell),
+            
+            console: Console::new(),
             renderer: None,
         }
     }
@@ -60,12 +62,13 @@ pub fn run() {
     let mut engine = Engine::new();
 
     let mut frame_start = Instant::now();
-    let mut _delta = Duration::ZERO;
+    let mut delta = Duration::ZERO;
     let mut total_runtime = Duration::ZERO;
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title(&format!("Zenit Engine {}", VERSION))
+        .with_inner_size(winit::dpi::LogicalSize::new(800, 600))
         .build(&event_loop)
         .expect("couldn't create the window");
 
@@ -75,8 +78,10 @@ pub fn run() {
                 frame_start = Instant::now();
 
                 if cause == StartCause::Init {
-                    info!("Initializing the game...");
-                    engine.renderer = Some(Arc::new(pollster::block_on(Renderer::new(&window))));
+                    engine.renderer = Some(Arc::new(Renderer::new(
+                        &mut engine,
+                        &window,
+                    )));
                 }
             }
 
@@ -101,10 +106,18 @@ pub fn run() {
             Event::MainEventsCleared => {
                 // Updating, rendering, etc. goes here
 
-                _delta = Instant::now().duration_since(frame_start);
-                total_runtime += _delta;
-                if _delta < engine.min_frame_time {
-                    let sleep_time = engine.min_frame_time - _delta;
+                engine.current_state =
+                    match mem::replace(&mut engine.current_state, GameState::Invalid) {
+                        GameState::Shell(state) => state.frame(&mut engine),
+                        GameState::Ingame => todo!(),
+                        GameState::Loading(x) => GameState::Loading(x),
+                        GameState::Invalid => panic!("Invalid game state"),
+                    };
+
+                delta = Instant::now().duration_since(frame_start);
+                total_runtime += delta;
+                if delta < engine.min_frame_time {
+                    let sleep_time = engine.min_frame_time - delta;
                     *cf = ControlFlow::WaitUntil(Instant::now() + sleep_time);
                 }
             }

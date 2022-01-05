@@ -1,10 +1,9 @@
 use std::mem::discriminant;
-
 use log::{info, error};
-
 use crate::{engine::Engine, AnyResult};
-
 use super::{ConsoleValue, Console};
+
+// TODO: move convars into a procmacro-based system
 
 #[derive(Debug)]
 pub struct ConVar {

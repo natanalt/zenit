@@ -1,78 +1,8 @@
-//! Console stuff, Source engine style
-//!
-
-use self::{
-    command::{ConCommand, ConCommandBuilder},
-    convar::ConVarBuilder,
-};
-use crate::engine::Engine;
-use std::{collections::HashMap, fmt::Display};
-
-pub mod command;
-pub mod convar;
-pub use convar::{ConVar, ConVarListener};
 use log::error;
-
-#[derive(Debug, Clone, Copy)]
-pub enum ConsoleValueKind {
-    Bool,
-    Int32,
-    Float32,
-    String,
-}
-
-#[derive(Debug, Clone)]
-pub enum ConsoleValue {
-    Bool(bool),
-    Int32(i32),
-    Float32(f32),
-    String(String),
-}
-
-impl ConsoleValue {
-    pub fn kind(&self) -> ConsoleValueKind {
-        match self {
-            ConsoleValue::Bool(_) => ConsoleValueKind::Bool,
-            ConsoleValue::Int32(_) => ConsoleValueKind::Int32,
-            ConsoleValue::Float32(_) => ConsoleValueKind::Float32,
-            ConsoleValue::String(_) => ConsoleValueKind::String,
-        }
-    }
-}
-
-impl Display for ConsoleValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConsoleValue::Bool(x) => write!(f, "{}", *x),
-            ConsoleValue::Int32(x) => write!(f, "{}", *x),
-            ConsoleValue::Float32(x) => write!(f, "{}", *x),
-            ConsoleValue::String(x) => write!(f, "\"{}\"", x),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Console {
-    pub convars: HashMap<String, ConVar>,
-    pub commands: HashMap<String, ConCommand>,
-}
+use crate::engine::Engine;
+use super::{ConsoleValueKind, ConsoleValue, Console};
 
 impl Console {
-    pub fn new() -> Self {
-        Self {
-            convars: HashMap::new(),
-            commands: HashMap::new(),
-        }
-    }
-
-    pub fn begin_convar(&mut self, name: &str, desc: &str) -> ConVarBuilder {
-        ConVarBuilder::new(self, name, desc)
-    }
-
-    pub fn begin_command(&mut self, name: &str, desc: &str) -> ConCommandBuilder {
-        ConCommandBuilder::new(self, name, desc)
-    }
-
     pub fn run_command(&mut self, engine: &mut Engine, command: &str) {
         let mut split = command.split(' ');
         let command_name = split.next().unwrap().to_string();

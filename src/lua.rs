@@ -11,7 +11,7 @@
 use thiserror::Error;
 
 use crate::AnyResult;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 
 pub mod chunk;
 
@@ -211,10 +211,10 @@ impl LuaState {
     }
 
     pub fn peek_string_or(&mut self, idx: i32, default: &str) -> String {
-        match self.peek_string(idx) {
-            Ok(x) => x.unwrap_or(default.to_string()),
-            Err(_) => default.to_string(),
-        }
+        self.peek_string(idx)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| default.to_string())
     }
 
     pub fn push_globals_table(&mut self) {
