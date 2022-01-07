@@ -2,16 +2,35 @@
 //! Format documentation is available here:
 //! https://gist.github.com/natanalt/2ef697e53e56d6abfb42a644f6317d68
 
-use crate::{unwrap_or_return, utils::PrimitiveReader};
+use crate::{unwrap_or_return_err, utils::PrimitiveReader, AnyResult};
 use byteorder::{ByteOrder, LE};
 use log::error;
 use std::fmt::{Debug, Display};
+use thiserror::Error;
 
 /// Represents a node in a munged level tree
 #[derive(Clone)]
 pub struct TreeNode<'s> {
     name: NodeName,
     data: &'s [u8],
+}
+
+#[derive(Debug, Error, Clone, Copy)]
+pub enum BasicParseError {
+    #[error("Data size below 8 bytes")]
+    TooSmall,
+    #[error("Data size doesn't match node's size")]
+    SizeMismatch,
+}
+
+#[derive(Debug, Error, Clone, Copy)]
+pub enum ParseChildrenError {
+    #[error("Data doesn't seem to contain child nodes")]
+    IncorrectFormat,
+}
+
+pub fn parse<'s>(data: &'s [u8]) -> AnyResult<TreeNode<'s>> {
+    Ok(TreeNode::parse(data)?)
 }
 
 impl<'s> TreeNode<'s> {
@@ -21,19 +40,19 @@ impl<'s> TreeNode<'s> {
     ///  * the node's size is smaller than 8 bytes
     ///  * the node's name begins with a nul byte
     ///  * the node's size is larger than size of provided `data` slice
-    pub fn parse(data: &'s [u8]) -> Option<Self> {
+    pub fn parse(data: &'s [u8]) -> Result<Self, BasicParseError> {
         if data.len() < 8 || data[0] == 0 {
-            return None;
+            return Err(BasicParseError::TooSmall);
         }
 
         let name = NodeName::from(LE::read_u32(&data[0..4]));
         let size = LE::read_u32(&data[4..8]);
 
         if size as usize + 8 > data.len() {
-            return None;
+            return Err(BasicParseError::SizeMismatch);
         }
 
-        Some(Self {
+        Ok(Self {
             name,
             data: &data[8..(size + 8) as usize],
         })
@@ -41,14 +60,16 @@ impl<'s> TreeNode<'s> {
 
     /// Attempts to parse this node's children - if it has any. If the reading process fails (most likely because the
     /// node doesn't contain a valid hierarchy), `None` is returned.
-    pub fn parse_children(&self) -> Option<Vec<TreeNode<'s>>> {
+    pub fn parse_children(&self) -> Result<Vec<TreeNode<'s>>, ParseChildrenError> {
         let first_attempt = Self::parse_children_inner(PrimitiveReader::new(self.data), None);
-        if first_attempt.is_some() {
+        if first_attempt.is_ok() {
             first_attempt
         } else {
             // Try again, assuming that the first 4 bytes specify the node count
             let mut parser = PrimitiveReader::new(self.data);
-            let count = unwrap_or_return!(parser.read_u32(), None);
+            let count = parser
+                .read_u32()
+                .ok_or(ParseChildrenError::IncorrectFormat)?;
             Self::parse_children_inner(parser, Some(count))
         }
     }
@@ -57,7 +78,7 @@ impl<'s> TreeNode<'s> {
     fn parse_children_inner(
         mut parser: PrimitiveReader<'s, LE>,
         node_limit: Option<u32>,
-    ) -> Option<Vec<TreeNode<'s>>> {
+    ) -> Result<Vec<TreeNode<'s>>, ParseChildrenError> {
         let node_limit = node_limit.unwrap_or(u32::MAX);
         let mut parsed_so_far = 0;
         let mut result = Vec::new();
@@ -72,11 +93,16 @@ impl<'s> TreeNode<'s> {
                 break;
             }
 
-            let name = NodeName::from(unwrap_or_return!(parser.read_u32(), None));
-            let size = unwrap_or_return!(parser.read_u32(), None);
+            let name = NodeName::from(unwrap_or_return_err!(
+                parser.read_u32(),
+                ParseChildrenError::IncorrectFormat
+            ));
+            let size = parser
+                .read_u32()
+                .ok_or(ParseChildrenError::IncorrectFormat)?;
             if size as usize > parser.remaining_bytes() {
                 error!("Parsing failed: invalid size {:#?}: {:x}", name, size);
-                return None;
+                return Err(ParseChildrenError::IncorrectFormat);
             }
 
             let data = parser.data();
@@ -89,7 +115,7 @@ impl<'s> TreeNode<'s> {
             parser.skip_bytes(size as usize);
         }
 
-        Some(result)
+        Ok(result)
     }
 
     /// Returns the node's name
@@ -122,12 +148,40 @@ impl<'s> Debug for TreeNode<'s> {
 }
 
 /// Represents a tree node's 4 byte identifier
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct NodeName {
     /// Raw name bytes. Little endian, and can sometimes be interpreted as 4 ASCII characters.
     /// Use implementations of `From<u32>` and `Into<u32>` to get endian accurate conversions between
     /// `u32` and `NodeName`.
     pub raw: [u8; 4],
+}
+
+impl NodeName {
+    /// Parses a 4-letter literal.
+    /// 
+    /// Example:
+    /// ```
+    /// NodeName::from_literal("scr_")
+    /// ```
+    /// 
+    /// ## Panics
+    /// Panics if the literal isn't 4 bytes (ASCII characters, I know...) long.
+    /// 
+    pub const fn from_literal(s: &str) -> NodeName {
+        if s.len() != 4 {
+            panic!("Invalid length");
+        }
+
+        let bytes = s.as_bytes();
+        NodeName {
+            raw: [
+                bytes[0],
+                bytes[1],
+                bytes[2],
+                bytes[3],
+            ]
+        }
+    }
 }
 
 impl From<u32> for NodeName {

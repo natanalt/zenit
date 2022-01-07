@@ -38,3 +38,13 @@ macro_rules! error_if {
         }
     }
 }
+
+#[macro_export]
+macro_rules! unwrap_or_bail {
+    ($opt:expr, $error:literal) => {
+        match $opt {
+            Some(x) => x,
+            None => anyhow::bail!($error),
+        }
+    }
+}

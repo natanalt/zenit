@@ -1,86 +1,95 @@
+//! Zenit Vulkan renderer
+//! It's BAD.
+//!
+
 use crate::engine::Engine;
 use log::info;
-use vulkano::{
-    device::{
-        physical::{PhysicalDevice, PhysicalDeviceType},
-        Device, DeviceExtensions, Features,
-    },
-    instance::{ApplicationInfo, Instance},
-    Version,
+use wgpu::{
+    Adapter, Backends, Device, DeviceDescriptor, Features, Instance, Limits, PowerPreference,
+    PresentMode, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture,
+    TextureUsages,
 };
 use winit::window::Window;
 
-pub struct Renderer {}
+pub struct Renderer {
+    pub adapter: Adapter,
+    pub surface: Surface,
+    pub device: Device,
+    pub queue: Queue,
+    pub sconfig: SurfaceConfiguration,
+    pub surface_texture: Option<SurfaceTexture>,
+}
 
 impl Renderer {
-    pub fn new(_engine: &mut Engine, window: &Window) -> Self {
+    pub async fn new(window: &Window) -> Self {
         info!("Initializing the renderer...");
 
-        let required_extensions = vulkano_win::required_extensions();
+        let wsize = window.inner_size();
 
-        let instance = Instance::new(
-            Some(&ApplicationInfo {
-                engine_name: Some("Zenit Engine".into()),
-                engine_version: Some(Version::major_minor(0, 1)),
-                ..Default::default()
-            }),
-            Version::V1_0,
-            &required_extensions,
-            None,
-        )
-        .expect("Couldn't create Vulkan instance");
+        let instance = Instance::new(Backends::all());
+        let surface = unsafe { instance.create_surface(&window) };
 
-        let surface = vulkano_win::create_vk_surface(window, instance.clone())
-            .expect("Couldn't create Vulkan surface");
+        let adapter = instance
+            .request_adapter(&RequestAdapterOptions {
+                power_preference: PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+            })
+            .await
+            .expect("Couldn't find an adapter!");
 
-        let device_extensions = DeviceExtensions {
-            khr_swapchain: true,
-            ..DeviceExtensions::none()
+        info!("Using adapter: {}", &adapter.get_info().name);
+
+        let (device, queue) = adapter
+            .request_device(
+                &DeviceDescriptor {
+                    label: None,
+                    features: Features::empty(),
+                    limits: Limits::default(),
+                },
+                None,
+            )
+            .await
+            .expect("Failed to create device");
+
+        let sconfig = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: surface.get_preferred_format(&adapter).unwrap(),
+            width: wsize.width,
+            height: wsize.height,
+            present_mode: PresentMode::Fifo,
         };
 
-        let (physical_device, queue_family) = PhysicalDevice::enumerate(&instance)
-            .filter(|&p| p.supported_extensions().is_superset_of(&device_extensions))
-            .filter_map(|p| {
-                p.queue_families()
-                    .find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
-                    .map(|q| (p, q))
-            })
-            .min_by_key(|(p, _)| match p.properties().device_type {
-                PhysicalDeviceType::DiscreteGpu => 0,
-                PhysicalDeviceType::IntegratedGpu => 1,
-                PhysicalDeviceType::VirtualGpu => 2,
-                PhysicalDeviceType::Cpu => 3,
-                PhysicalDeviceType::Other => 4,
-            })
-            .expect("Couldn't find a suitable device!");
+        surface.configure(&device, &sconfig);
 
-        {
-            let name = physical_device.properties().device_name.as_str();
-            let driver = physical_device
-                .properties()
-                .driver_name
-                .as_ref()
-                .map(|x| x.as_str())
-                .unwrap_or("unknown");
-            let kind = physical_device.properties().device_type;
-            info!("GPU properties:");
-            info!(" * device name: {}", name);
-            info!(" * device driver: {}", driver);
-            info!(" * device type: {:?}", kind);
+        Self {
+            adapter,
+            surface,
+            device,
+            queue,
+            sconfig,
+            surface_texture: None,
+        }
+    }
+
+    pub fn begin_frame(&mut self, engine: &mut Engine) {
+        if let Some(new_size) = engine.events.new_size {
+            assert!(new_size.x != 0 && new_size.y != 0, "New size W=0 or H=0!");
+            self.sconfig.width = new_size.x as _;
+            self.sconfig.height = new_size.y as _;
+            self.surface.configure(&self.device, &self.sconfig);
         }
 
-        let (device, mut queues) = Device::new(
-            physical_device,
-            &Features::none(),
-            &physical_device
-                .required_extensions()
-                .union(&device_extensions),
-            [(queue_family, 0.5)].iter().cloned(),
-        )
-        .expect("Couldn't create a logical device");
+        self.surface_texture = Some(
+            self.surface
+                .get_current_texture()
+                .expect("Couldn't get next surface texture"),
+        );
+    }
 
-        let queue = queues.next().expect("Couldn't get the queue");
-
-        todo!()
+    pub fn finish_frame(&mut self, _engine: &mut Engine) {
+        if let Some(frame) = self.surface_texture.take() {
+            frame.present();
+        }
     }
 }

@@ -14,6 +14,7 @@ use crate::AnyResult;
 use std::ffi::CStr;
 
 pub mod chunk;
+pub use chunk::load_chunk;
 
 pub mod ffi {
     #![allow(non_upper_case_globals)]
