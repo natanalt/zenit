@@ -9,6 +9,10 @@ pub struct ShellState {
 }
 
 impl ShellState {
+    pub fn new(engine: &mut Engine) -> Self {
+        Self {}
+    }
+
     pub fn frame(mut self, engine: &mut Engine) -> GameState {
         GameState::Shell(self)
     }

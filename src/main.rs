@@ -9,11 +9,14 @@ pub mod utils;
 pub mod console;
 pub mod shell;
 pub mod args;
+pub mod loading;
+pub mod devui;
 
 pub type AnyResult<T> = anyhow::Result<T>;
 
 fn main(){
     simple_logger::SimpleLogger::new()
+        .with_module_level("naga", log::LevelFilter::Off)
         .with_module_level("wgpu_hal", log::LevelFilter::Off)
         .with_module_level("wgpu_core", log::LevelFilter::Off)
         .with_colors(true)

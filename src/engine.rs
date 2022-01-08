@@ -1,32 +1,32 @@
-use crate::{args::ZenitArgs, console::Console, renderer::Renderer, shell::ShellState, resources::Resources};
+//! Root of the engine structure and the event loop
+//!
+
+use crate::{
+    args::ZenitArgs, console::Console, devui::DevUI, loading::LoadingState, renderer::Renderer,
+    resources::Resources, shell::ShellState,
+};
 use clap::StructOpt;
 use glam::IVec2;
 use log::info;
 use pollster::FutureExt;
 use std::{
-    mem,
+    iter, mem,
     time::{Duration, Instant},
 };
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-#[derive(Debug, Clone, Copy)]
-pub enum LoadingTarget {
-    Shell,
-    Ingame,
-}
 
 #[derive(Debug, Clone)]
 pub enum GameState {
     Invalid,
     Shell(ShellState),
     Ingame,
-    Loading(LoadingTarget),
+    Loading(LoadingState),
 }
 
 #[derive(Debug, Default)]
@@ -53,6 +53,7 @@ pub struct Engine {
     pub events: Events,
     pub console: Console,
     pub resources: Resources,
+    pub devui: Option<Box<DevUI>>,
     pub renderer: Option<Box<Renderer>>,
 
     pub frame_start: Instant,
@@ -63,14 +64,16 @@ pub struct Engine {
 
 impl Engine {
     /// Creates a fresh Engine instance
-    pub fn new(cli_args: ZenitArgs, renderer: Renderer) -> Self {
+    pub fn new(cli_args: ZenitArgs, renderer: Renderer, window: &Window) -> Self {
+        let resources = Resources::new(&cli_args.game_root);
         Self {
             exit_requested: false,
-            current_state: GameState::Loading(LoadingTarget::Shell),
-            
+            current_state: GameState::Loading(LoadingState::shell_loader(&resources)),
+
             events: Events::default(),
             console: Console::new(),
-            resources: Resources::new(&cli_args.game_root),
+            resources,
+            devui: Some(Box::new(DevUI::new(&renderer, window))),
             renderer: Some(Box::new(renderer)),
 
             cli_args: ZenitArgs::parse(),
@@ -89,7 +92,10 @@ impl Engine {
     }
 }
 
-pub fn run() {
+/// Creates an Engine instance and begins the main loop.
+///
+/// The main loop is managed entirely by winit; this function will not return.
+pub fn run() -> ! {
     let cli_args = ZenitArgs::parse();
 
     info!("Welcome to Zenit {}!", VERSION);
@@ -103,7 +109,7 @@ pub fn run() {
 
     info!("Game root: {}", cli_args.game_root.display());
 
-    let mut engine = Engine::new(cli_args, Renderer::new(&window).block_on());
+    let mut engine = Engine::new(cli_args, Renderer::new(&window).block_on(), &window);
 
     event_loop.run(move |event, _, cf| {
         let self_window_id = window.id();
@@ -116,22 +122,23 @@ pub fn run() {
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == self_window_id => match event {
-                WindowEvent::CloseRequested => {
-                    engine.exit();
+            } if window_id == self_window_id => {
+                engine.devui.as_mut().unwrap().process_event(event);
+                match event {
+                    WindowEvent::CloseRequested => {
+                        engine.exit();
+                    }
+                    WindowEvent::Resized(physical_size) => {
+                        engine.events.new_size = Some(IVec2::new(
+                            physical_size.width as _,
+                            physical_size.height as _,
+                        ));
+                    }
+                    _ => {}
                 }
-                WindowEvent::Resized(physical_size) => {
-                    engine.events.new_size = Some(IVec2::new(
-                        physical_size.width as _,
-                        physical_size.height as _,
-                    ));
-                }
-                _ => {}
-            },
+            }
 
             Event::MainEventsCleared => {
-                // Updating, rendering, etc. goes here
-
                 // Very hacky workaround to let the renderer take mutable Engine references
                 let mut renderer = engine
                     .renderer
@@ -140,13 +147,21 @@ pub fn run() {
                 renderer.begin_frame(&mut engine);
                 engine.renderer = Some(renderer);
 
+                // Update the actual game
                 engine.current_state =
                     match mem::replace(&mut engine.current_state, GameState::Invalid) {
                         GameState::Shell(state) => state.frame(&mut engine),
                         GameState::Ingame => todo!(),
-                        GameState::Loading(x) => GameState::Loading(x),
+                        GameState::Loading(state) => state.frame(&mut engine),
                         GameState::Invalid => panic!("Invalid game state"),
                     };
+
+                // egui rendering, also using that terrible workaround
+                let mut devui = engine.devui.take().expect("DevUI is missing");
+                if let Some(buffer) = devui.frame(&mut engine, &window) {
+                    engine.renderer.as_mut().unwrap().buffers.push(buffer);
+                }
+                engine.devui = Some(devui);
 
                 // Very hacky workaround part 2
                 let mut renderer = engine
@@ -156,6 +171,7 @@ pub fn run() {
                 renderer.finish_frame(&mut engine);
                 engine.renderer = Some(renderer);
 
+                // Calculate delta and increment total_runtime
                 engine.delta = Instant::now().duration_since(engine.frame_start);
                 engine.total_runtime += engine.delta;
                 if engine.delta < engine.min_frame_time {
@@ -170,5 +186,5 @@ pub fn run() {
         if engine.exit_requested {
             *cf = ControlFlow::Exit;
         }
-    });
+    })
 }

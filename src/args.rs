@@ -1,3 +1,6 @@
+//! Command line parameter structure
+//! 
+
 use std::path::PathBuf;
 use clap::Parser;
 

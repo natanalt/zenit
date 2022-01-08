@@ -7,7 +7,7 @@ use log::info;
 use wgpu::{
     Adapter, Backends, Device, DeviceDescriptor, Features, Instance, Limits, PowerPreference,
     PresentMode, Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture,
-    TextureUsages,
+    TextureUsages, CommandBuffer,
 };
 use winit::window::Window;
 
@@ -18,6 +18,7 @@ pub struct Renderer {
     pub queue: Queue,
     pub sconfig: SurfaceConfiguration,
     pub surface_texture: Option<SurfaceTexture>,
+    pub buffers: Vec<CommandBuffer>,
 }
 
 impl Renderer {
@@ -69,6 +70,7 @@ impl Renderer {
             queue,
             sconfig,
             surface_texture: None,
+            buffers: Vec::new(),
         }
     }
 
@@ -88,6 +90,7 @@ impl Renderer {
     }
 
     pub fn finish_frame(&mut self, _engine: &mut Engine) {
+        self.queue.submit(self.buffers.drain(0..));
         if let Some(frame) = self.surface_texture.take() {
             frame.present();
         }

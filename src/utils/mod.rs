@@ -1,3 +1,5 @@
+//! Various utilities used by the code
+//! 
 
 mod fnv1a;
 pub use fnv1a::fnv1a_hash as hash;

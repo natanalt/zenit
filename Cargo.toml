@@ -17,6 +17,9 @@ lazy_static = "1.4"
 libc = "0.2"
 simple_logger = "1.15" # will be replaced
 wgpu = "0.12"
+egui-winit = "0.16"
+egui_wgpu_backend = "0.16.0"
+egui = "0.16"
 pollster = "0.2"
 glam = "0.20"
 clap = { version = "3.0", features = ["derive"] }

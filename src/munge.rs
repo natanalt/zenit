@@ -1,6 +1,8 @@
 //! Reader of munged .lvl files
+//! 
 //! Format documentation is available here:
 //! https://gist.github.com/natanalt/2ef697e53e56d6abfb42a644f6317d68
+//! 
 
 use crate::{unwrap_or_return_err, utils::PrimitiveReader, AnyResult};
 use byteorder::{ByteOrder, LE};
