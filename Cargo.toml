@@ -8,25 +8,16 @@ build = "build.rs"
 links = "lua"
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-log = "0.4"
-winit = "0.26"
-byteorder = "1.4"
-lazy_static = "1.4"
-libc = "0.2"
-simple_logger = "1.15" # will be replaced
-wgpu = "0.12"
-egui-winit = "0.16"
-egui_wgpu_backend = "0.16.0"
-egui = "0.16"
-pollster = "0.2"
-glam = "0.20"
-clap = { version = "3.0", features = ["derive"] }
-memmap2 = "0.5"
-#spin_sleep = "1.0"
+anyhow = "1.0.52"
+thiserror = "1.0.30"
+byteorder = "1.4.3"
+lazy_static = "1.4.0"
+libc = "0.2.112"
+clap = { version = "3.0.5", features = ["derive"] }
+memmap2 = "0.5.1"
+bevy = { version = "0.6", features = ["dynamic"] } # TODO: don't do bevy dynlibs on release profile
 
 [build-dependencies]
-cc = "1.0"
-bindgen = "0.59"
+cc = "1.0.72"
+bindgen = "0.59.2"
 glob = "0.3"

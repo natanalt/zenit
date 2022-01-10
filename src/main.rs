@@ -1,26 +1,17 @@
 //! Zenit Engine entry point
+use bevy::prelude::*;
+use clap::StructOpt;
 
-pub mod engine;
-pub mod lua;
-pub mod munge;
-pub mod resources;
-pub mod renderer;
-pub mod utils;
-pub mod console;
-pub mod shell;
 pub mod args;
-pub mod loading;
-pub mod devui;
+pub mod assets;
+pub mod lua;
+pub mod utils;
 
-pub type AnyResult<T> = anyhow::Result<T>;
+pub type AnyResult<T, E = anyhow::Error> = anyhow::Result<T, E>;
 
-fn main(){
-    simple_logger::SimpleLogger::new()
-        .with_module_level("naga", log::LevelFilter::Off)
-        .with_module_level("wgpu_hal", log::LevelFilter::Off)
-        .with_module_level("wgpu_core", log::LevelFilter::Off)
-        .with_colors(true)
-        .init()
-        .expect("couldn't init logger");
-    engine::run();
+fn main() {
+    App::new()
+        .insert_resource(args::ZenitArgs::parse())
+        .add_plugins(DefaultPlugins)
+        .run();
 }

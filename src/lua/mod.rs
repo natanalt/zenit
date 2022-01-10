@@ -9,7 +9,6 @@
 //!
 
 use thiserror::Error;
-
 use crate::AnyResult;
 use std::ffi::CStr;
 

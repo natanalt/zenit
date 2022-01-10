@@ -1,0 +1,18 @@
+# Enabling use of LLD as a linker, because on Windows this literally breaks MSVC,
+# because of its 65535 object limit. So that's interesting.
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = ["-Zshare-generics=n"]
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/clang"
+rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=n"]
+
+# NOTE: you must manually install https://github.com/michaeleisel/zld on mac.
+# You can easily do this with the "brew" package manager: `brew install michaeleisel/zld/zld`
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=n"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=n"]

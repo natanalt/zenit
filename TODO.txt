@@ -1,8 +1,0 @@
-A temporary list of TODOs:
- * finishing egui integration
- * separating egui and game rendering into separate texture, and then blending them together onto the final render target, the surface
- * munged texture loading
- * starting to implement proper shell code and Lua API implementations
- * parallelised and frame asynchronous resource loading process
- * cleanup of munged loading code
- * better engine event logic

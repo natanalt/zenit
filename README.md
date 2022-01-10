@@ -7,22 +7,14 @@ It's still super early in its life and you can't even start it yet. Work is unde
  * A legal copy of PC SWBF2.
    DVD retail copies also work (I personally use one), just make sure to install the game properly first, to unpack the data.
    If you don't own a copy, you could get it on [Steam](https://store.steampowered.com/app/6060/Star_Wars_Battlefront_2_Classic_2005/)
- * Vulkan capable GPU
-   * at some point OpenGL ES 3.0 support will be added as well (cause Android), but for now the Vulkan backend is the only one
-
-While this project intends to be as portable as it is, I do my testing primarly on x86-64 Windows. Linux will likely work out of the box, macOS may require getting Vulkan compatibility layers like MoltenVK installed.
-
-### Raytracing support????
-😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳😳
+ * a computer idk
 
 ## Building
 You need two things:
- * a Rust compiler (latest stable)
+ * a Rust compiler (unstable)
  * a C compiler usable by Rust, such as MSVC or GCC
 
-Run `cargo build` and wait for magic to happen. The first build may spiral into quite a lot of dependencies to build, so uh, yeah
-
-It shouldn't take that long
+Run `cargo build` and wait for magic to happen. The first build will spiral to a LOT, mostly because of Bevy. The build is configured to compile Bevy into a DLL, so after the first build you shouldn't have to wait for it to build again.
 
 ## License stuff
 No license attached here yet; it'll likely be GPL

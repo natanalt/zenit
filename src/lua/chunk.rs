@@ -126,7 +126,7 @@ unsafe fn read_function(
     (*proto).sizelineinfo = line_count;
     (*proto).lineinfo = create_lua_vector::<i32>(l, line_count)?;
     for i in 0..line_count {
-        *((*proto).lineinfo.offset(i as _)) = reader.read_i32_c()? as _;
+        *((*proto).lineinfo.offset(i as isize)) = reader.read_i32_c()? as _;
     }
 
     // Load locals
@@ -146,7 +146,7 @@ unsafe fn read_function(
 
     // Load upvalues
     let upvalue_count = reader.read_i32_c()?;
-    if upvalue_count != (*proto).nups as _ {
+    if upvalue_count != (*proto).nups as i32 {
         return Err(ParseError::LuaApiError)?
     }
     (*proto).upvalues = create_lua_vector::<*mut ffi::TString>(l, upvalue_count)?;
