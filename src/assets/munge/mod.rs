@@ -1,11 +1,11 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
 mod name;
-mod parser;
+pub mod parser;
 
 pub use name::MungeName;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MungeNode {
     pub name: MungeName,
     pub offset: u64,
@@ -14,14 +14,18 @@ pub struct MungeNode {
 
 impl MungeNode {
     /// Reads the internal node data into a `Box<[u8]>` from given `Read + Seek` reader.
-    pub fn read_data<Reader: Read + Seek>(&self, r: &Reader) -> io::Result<Box<[u8]>> {
+    pub fn read_data<Reader: Read + Seek>(&self, mut r: Reader) -> io::Result<Vec<u8>> {
         let length = self.length as usize;
-        let result = Vec::with_capacity(length as usize);
+        let mut result = Vec::with_capacity(length);
         result.resize(length, 0);
 
         r.seek(SeekFrom::Start(self.offset))?;
         r.read(&mut result)?;
 
-        Ok(result.into_boxed_slice())
+        Ok(result)
     }
+}
+
+pub fn parse<Reader: Read + Seek>(r: &mut Reader) -> Result<MungeNode, parser::ParseError> {
+    MungeNode::parse(r)
 }

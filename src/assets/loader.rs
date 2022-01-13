@@ -1,6 +1,17 @@
 use bevy::{prelude::*, asset::{AssetLoader, BoxedFuture, LoadContext}};
 use crate::AnyResult;
 
+use super::munge::MungeName;
+
+pub const LOADABLE_NODES: &'static [MungeName] = &[
+    MungeName::from_literal("scr_"),
+    MungeName::from_literal("tex_"),
+];
+
+pub fn is_loadable(name: MungeName) -> bool {
+    LOADABLE_NODES.contains(&name)
+}
+
 /// Loader of munged (.lvl) files.
 #[derive(Default)]
 pub struct MungeLoader;

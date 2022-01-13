@@ -1,4 +1,4 @@
 
-mod loader;
-mod munge_asset_io;
-mod munge;
+pub mod loader;
+pub mod munge_asset_io;
+pub mod munge;
