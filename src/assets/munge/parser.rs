@@ -1,4 +1,4 @@
-use super::{MungeName, MungeNode};
+use super::{MungeName, MungeNode, MungeTreeNode};
 use byteorder::{ReadBytesExt, LE};
 use std::io::{self, Read, Seek, SeekFrom};
 use thiserror::Error;
@@ -11,18 +11,10 @@ pub enum ParseError {
     IoError(#[from] io::Error),
 }
 
-#[derive(Debug, Error)]
-pub enum ParseChildrenError {
-    #[error("This node doesn't contain valid children")]
-    NoChildren,
-    #[error("IO error has occurred: {0}")]
-    IoError(#[from] io::Error),
-}
-
 impl MungeNode {
     /// Parses a node. It only resolves the name and length, and doesn't attempt to parse children
     /// nodes, see `parse_children` for that.
-    pub fn parse<Reader: Read + Seek>(mut r: Reader) -> Result<MungeNode, ParseError> {
+    pub fn parse<Reader: Read + Seek>(r: &mut Reader) -> Result<MungeNode, ParseError> {
         let name = MungeName::from(r.read_u32::<LE>()?);
         if name.raw[0] == 0 {
             return Err(ParseError::InvalidNode);
@@ -37,7 +29,7 @@ impl MungeNode {
             r.seek(SeekFrom::Start(old_pos))?;
             len - offset
         };
-        
+
         if length as u64 > max_length {
             return Err(ParseError::InvalidNode);
         }
@@ -49,14 +41,26 @@ impl MungeNode {
         })
     }
 
+    /// Reads the internal node data into a `Vec<u8>` from given `Read + Seek` reader.
+    pub fn read_contents<Reader: Read + Seek>(&self, r: &mut Reader) -> io::Result<Vec<u8>> {
+        let length = self.length as usize;
+        let mut result = Vec::with_capacity(length);
+        result.resize(length, 0);
+
+        r.seek(SeekFrom::Start(self.offset))?;
+        r.read(&mut result)?;
+
+        Ok(result)
+    }
+
     /// Attempts to interpret the internal node data as if it contained child nodes. This is not
     /// a recursive operation. `BufReader` is recommended for this.
     pub fn parse_children<Reader: Read + Seek>(
         &self,
-        mut r: Reader,
-    ) -> Result<Vec<MungeNode>, ParseChildrenError> {
+        r: &mut Reader,
+    ) -> io::Result<Option<Vec<MungeNode>>> {
         if self.length < 8 || self.length == u32::MAX {
-            return Err(ParseChildrenError::NoChildren);
+            return Ok(None);
         }
 
         // Attempt to parse:
@@ -64,20 +68,79 @@ impl MungeNode {
         //  2. with a single 4 byte offset (sometimes nodes encode their child counts there)
         // Note: IO error is an instant failure
         r.seek(SeekFrom::Start(self.offset))?;
-        parse_children_inner(&mut r, self.length).or_else(|err| match err {
-            ParseChildrenError::NoChildren => {
+        Ok(match parse_children_inner(r, self.length)? {
+            Some(x) => Some(x),
+            None => {
                 r.seek(SeekFrom::Start(self.offset + 4))?;
-                parse_children_inner(&mut r, self.length - 4)
+                parse_children_inner(r, self.length - 4)?
             }
-            ParseChildrenError::IoError(_) => Err(err),
+        })
+    }
+
+    pub fn parse_tree<Reader: Read + Seek>(
+        &self,
+        r: &mut Reader,
+        max_depth: Option<u32>,
+    ) -> io::Result<MungeTreeNode> {
+        let max_depth = max_depth.unwrap_or(u32::MAX);
+
+        if max_depth == 0 {
+            return Ok(MungeTreeNode {
+                node: self.clone(),
+                children: Vec::new(),
+            });
+        }
+
+        let children = {
+            let base = self.parse_children(r)?;
+            if let Some(base) = base {
+                base
+            } else {
+                return Ok(MungeTreeNode {
+                    node: self.clone(),
+                    children: Vec::new(),
+                });
+            }
+        };
+
+        Ok(MungeTreeNode {
+            node: self.clone(),
+            children: {
+                let mut result = Vec::new();
+                for child in children {
+                    result.push(child.parse_tree(r, Some(max_depth - 1))?);
+                }
+                result
+            },
         })
     }
 }
 
+impl MungeTreeNode {
+    /// Parses a new node, and its children
+    pub fn parse<Reader: Read + Seek>(
+        r: &mut Reader,
+        max_depth: Option<u32>,
+    ) -> Result<Self, ParseError> {
+        Ok(MungeNode::parse(r)?.parse_tree(r, max_depth)?)
+    }
+
+    /// Parses children of this node entry and puts them into self children vector. Goes
+    /// recursively, if possible, up to `max_depth` (if None, then there's no limit)
+    pub fn parse_tree<Reader: Read + Seek>(
+        &mut self,
+        r: &mut Reader,
+        max_depth: Option<u32>,
+    ) -> io::Result<()> {
+        *self = self.node.parse_tree(r, max_depth)?;
+        Ok(())
+    }
+}
+
 fn parse_children_inner<Reader: Read + Seek>(
-    mut r: Reader,
+    r: &mut Reader,
     size_limit: u32,
-) -> Result<Vec<MungeNode>, ParseChildrenError> {
+) -> io::Result<Option<Vec<MungeNode>>> {
     let mut result = Vec::new();
     let mut parsed_bytes = 0;
 
@@ -98,23 +161,27 @@ fn parse_children_inner<Reader: Read + Seek>(
     };
 
     while parsed_bytes < size_limit {
-        if skip_zeroes(&mut r, &mut parsed_bytes)? {
+        if skip_zeroes(r, &mut parsed_bytes)? {
             continue;
         }
 
         // Non-zero data that can't be a valid node
         if size_limit - parsed_bytes < 8 {
-            return Err(ParseChildrenError::NoChildren);
+            return Ok(None);
         }
 
-        let child = MungeNode::parse(&mut r).map_err(|err| match err {
-            ParseError::InvalidNode => ParseChildrenError::NoChildren,
-            ParseError::IoError(e) => ParseChildrenError::IoError(e),
-        })?;
+        let child = match MungeNode::parse(r) {
+            Ok(x) => x,
+            Err(err) => match err {
+                ParseError::InvalidNode => return Ok(None),
+                ParseError::IoError(err) => return Err(err),
+            },
+        };
+
         let taken_bytes = (child.length as u64) + 8;
 
         if parsed_bytes + taken_bytes > size_limit {
-            return Err(ParseChildrenError::NoChildren);
+            return Ok(None);
         }
 
         parsed_bytes += taken_bytes;
@@ -123,5 +190,5 @@ fn parse_children_inner<Reader: Read + Seek>(
         result.push(child);
     }
 
-    Ok(result)
+    Ok(Some(result))
 }

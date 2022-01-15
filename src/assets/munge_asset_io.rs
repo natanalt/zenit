@@ -1,10 +1,7 @@
-use super::munge::{
-    parser::{ParseChildrenError, ParseError},
-    MungeName, MungeNode,
-};
+use super::munge::{parser::ParseError, MungeName, MungeNode, MungeTreeNode};
 use crate::{
     assets::{loader, munge},
-    AnyResult, utils,
+    utils, AnyResult,
 };
 use bevy::{
     asset::{AssetIo, AssetIoError, BoxedFuture},
@@ -76,46 +73,7 @@ impl AssetIo for MungeAssetIo {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, AnyResult<Vec<u8>, AssetIoError>> {
-        Box::pin(async move {
-            let (file_path, inner_path) = MungePath::parse_path(path)
-                .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?;
-
-            if inner_path.is_directory() {
-                return Err(AssetIoError::Io(io::ErrorKind::InvalidInput.into()));
-            }
-
-            // There's a little tiny chance that I do blocking file I/O in an async context...
-            // That's really unfortunate
-            // TODO: make node loading async-friendly
-            let cache_arc = self.open(file_path).map_err(|err| match err {
-                CacheOpenError::IoError(e) => e,
-                _ => io::ErrorKind::InvalidData.into(),
-            })?;
-
-            let mut cache = cache_arc.lock().expect("cache lock poisoned");
-
-            match inner_path {
-                MungePath::RootObject(name) => {
-                    let child = cache
-                        .cached_children
-                        .iter()
-                        .find(|child| child.name == name)
-                        .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
-                        .node
-                        .clone();
-                    
-                    Ok(child.read_data(&mut cache.file)?)
-                }
-                MungePath::SectionObject {
-                    section_name,
-                    object_name,
-                } => {
-                    let hash = utils::hash(section_name.as_bytes());
-                    todo!()
-                },
-                _ => unreachable!(),
-            }
-        })
+        Box::pin(async move { todo!() })
     }
 
     fn read_directory(
@@ -138,8 +96,7 @@ impl AssetIo for MungeAssetIo {
     fn is_directory(&self, path: &Path) -> bool {
         MungePath::parse_path(path)
             .map(|f| f.1.is_directory())
-            .unwrap_or(false)
-            || self.root_path.join(path).is_dir()
+            .unwrap_or_else(|| self.root_path.join(path).is_dir())
     }
 
     fn watch_path_for_changes(&self, _path: &Path) -> AnyResult<(), AssetIoError> {
@@ -238,12 +195,13 @@ impl MungePath {
 #[derive(Debug)]
 struct MungeCache {
     pub file: BufReader<File>,
-    pub root_node: MungeNode,
-    pub cached_children: Vec<LoadableCacheNode>,
+    pub root_node: MungeTreeNode,
+    pub root_children: HashMap,
+    pub sections: HashMap<u32, Vec<AssetNode>>,
 }
 
 #[derive(Debug)]
-struct LoadableCacheNode {
+struct AssetNode {
     pub node: MungeNode,
     pub name: String,
 }
@@ -261,47 +219,17 @@ impl MungeCache {
         }
 
         let mut file = BufReader::new(open_options.open(path)?);
-        let root_node = munge::parse(&mut file).map_err(|err| match err {
-            ParseError::InvalidNode => CacheOpenError::InvalidFormat,
-            ParseError::IoError(e) => e.into(),
+        let root_node = MungeTreeNode::parse(&mut file, Some(2)).map_err(|err| match err {
+            ParseError::InvalidNode => CacheOpenError::InvalidRootNode,
+            ParseError::IoError(err) => CacheOpenError::IoError(err),
         })?;
 
-        let children = root_node
-            .parse_children(&mut file)
-            .map_err(|err| match err {
-                ParseChildrenError::NoChildren => CacheOpenError::InvalidRootNode,
-                ParseChildrenError::IoError(e) => e.into(),
-            })?;
+        let root_children = root_node
+            .children
+            .iter()
+            .
 
-        let mut cached_children = Vec::new();
-        for node in children {
-            if !loader::is_loadable(node.name) {
-                continue;
-            }
 
-            let children = node.parse_children(&mut file).map_err(|err| match err {
-                ParseChildrenError::NoChildren => CacheOpenError::InvalidChildNode,
-                ParseChildrenError::IoError(e) => e.into(),
-            })?;
-
-            let name = std::ffi::CString::from_vec_with_nul(
-                children
-                    .into_iter()
-                    .find(|child| child.name == MungeName::from_literal("NAME"))
-                    .ok_or(CacheOpenError::InvalidChildNode)?
-                    .read_data(&mut file)?,
-            )
-            .map_err(|_| CacheOpenError::InvalidChildNode)?
-            .into_string()
-            .map_err(|_| CacheOpenError::InvalidChildNode)?;
-
-            cached_children.push(LoadableCacheNode { node, name });
-        }
-
-        Ok(MungeCache {
-            file,
-            root_node,
-            cached_children,
-        })
+        todo!()
     }
 }
