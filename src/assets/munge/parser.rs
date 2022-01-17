@@ -1,6 +1,11 @@
+use crate::AnyResult;
+
 use super::{MungeName, MungeNode, MungeTreeNode};
 use byteorder::{ReadBytesExt, LE};
-use std::io::{self, Read, Seek, SeekFrom};
+use std::{
+    ffi::CStr,
+    io::{self, Read, Seek, SeekFrom},
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -51,6 +56,13 @@ impl MungeNode {
         r.read(&mut result)?;
 
         Ok(result)
+    }
+
+    /// Attempts to parse the node contents as a null-terminated UTF-8 String
+    pub fn read_string<Reader: Read + Seek>(&self, r: &mut Reader) -> AnyResult<String> {
+        Ok(CStr::from_bytes_with_nul(&self.read_contents(r)?)?
+            .to_str()?
+            .to_owned())
     }
 
     /// Attempts to interpret the internal node data as if it contained child nodes. This is not

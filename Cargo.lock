@@ -1318,6 +1318,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b799062aaf67eb976af3bdca031ee6f846d2f0a5710ddbb0d2efee33f3cc4760"
+dependencies = [
+ "cfg-if 1.0.0",
+ "num_cpus",
+ "parking_lot",
+]
+
+[[package]]
 name = "deflate"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3470,12 +3481,14 @@ checksum = "a67300977d3dc3f8034dae89778f502b6ba20b269527b3223ba59c0cf393bb8a"
 name = "zenit"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "bevy",
  "bindgen 0.59.2",
  "byteorder",
  "cc",
  "clap 3.0.5",
+ "dashmap",
  "glob",
  "lazy_static",
  "libc",

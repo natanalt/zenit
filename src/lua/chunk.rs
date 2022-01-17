@@ -16,15 +16,20 @@
 //!
 //! This code pretty much copies the behavior of `lundump.c` from Lua.
 //! Safety not guaranteed.
-//! 
+//!
 
 // This all may and probably will break on builds where int is 64-bit
 // i despise C
 
 use super::{ffi, LuaState};
-use crate::{error_if, utils::PrimitiveReader, AnyResult};
-use byteorder::{LE, ByteOrder};
-use std::{ffi::CStr, mem::size_of, ptr};
+use crate::{error_if, AnyResult};
+use byteorder::{ReadBytesExt, LE};
+use std::{
+    ffi::CStr,
+    io::{Cursor, Read, Seek, SeekFrom},
+    mem::size_of,
+    ptr,
+};
 use thiserror::Error;
 
 #[rustfmt::skip]
@@ -62,10 +67,10 @@ pub enum ParseError {
 /// chunks (see module documentation).
 ///
 pub fn load_chunk(l: &mut LuaState, blob: &[u8]) -> AnyResult<()> {
-    let mut reader = PrimitiveReader::<LE>::new(blob);
+    let mut reader = Cursor::new(blob);
 
     let mut header = [0; 18];
-    reader.read_bytes(&mut header);
+    reader.read(&mut header)?;
     if header != EXPECTED_HEADER {
         return Err(ParseError::InvalidHeader)?;
     }
@@ -81,34 +86,40 @@ pub fn load_chunk(l: &mut LuaState, blob: &[u8]) -> AnyResult<()> {
 }
 
 /// Makes using everything a lot less annoying
-trait PrimitiveReaderExt {
+trait ErroringReaderExt {
     fn read_u8_c(&mut self) -> AnyResult<u8>;
     fn read_u32_c(&mut self) -> AnyResult<u32>;
     fn read_i32_c(&mut self) -> AnyResult<i32>;
     fn read_f32_c(&mut self) -> AnyResult<f32>;
 }
 
-impl<'a, Endian: ByteOrder> PrimitiveReaderExt for PrimitiveReader<'a, Endian> {
+impl ErroringReaderExt for Cursor<&[u8]> {
     fn read_u8_c(&mut self) -> AnyResult<u8> {
-        Ok(self.read_u8().ok_or_else(|| ParseError::IncorrectSize)?)
+        Ok(self.read_u8().map_err(|_| ParseError::IncorrectSize)?)
     }
 
     fn read_u32_c(&mut self) -> AnyResult<u32> {
-        Ok(self.read_u32().ok_or_else(|| ParseError::IncorrectSize)?)
+        Ok(self
+            .read_u32::<LE>()
+            .map_err(|_| ParseError::IncorrectSize)?)
     }
 
     fn read_i32_c(&mut self) -> AnyResult<i32> {
-        Ok(self.read_i32().ok_or_else(|| ParseError::IncorrectSize)?)
+        Ok(self
+            .read_i32::<LE>()
+            .map_err(|_| ParseError::IncorrectSize)?)
     }
 
     fn read_f32_c(&mut self) -> AnyResult<f32> {
-        Ok(self.read_f32().ok_or_else(|| ParseError::IncorrectSize)?)
+        Ok(self
+            .read_f32::<LE>()
+            .map_err(|_| ParseError::IncorrectSize)?)
     }
 }
 
 unsafe fn read_function(
     l: &mut LuaState,
-    reader: &mut PrimitiveReader<LE>,
+    reader: &mut Cursor<&[u8]>,
 ) -> AnyResult<*mut ffi::Proto> {
     let proto = ffi::luaF_newproto(l.raw());
     error_if!(proto.is_null(), ParseError::LuaApiError);
@@ -147,7 +158,7 @@ unsafe fn read_function(
     // Load upvalues
     let upvalue_count = reader.read_i32_c()?;
     if upvalue_count != (*proto).nups as i32 {
-        return Err(ParseError::LuaApiError)?
+        return Err(ParseError::LuaApiError)?;
     }
     (*proto).upvalues = create_lua_vector::<*mut ffi::TString>(l, upvalue_count)?;
     (*proto).sizeupvalues = upvalue_count;
@@ -201,15 +212,17 @@ unsafe fn read_function(
 /// May return null, if the string is empty. This will not be marked as failure.
 unsafe fn read_lua_string(
     l: &mut LuaState,
-    reader: &mut PrimitiveReader<LE>,
+    reader: &mut Cursor<&[u8]>,
 ) -> AnyResult<*mut ffi::TString> {
     let len = reader.read_i32_c()?;
     if len == 0 {
         return Ok(ptr::null_mut());
     }
 
-    let data = CStr::from_bytes_with_nul(reader.slice_from_current(len as usize))?;
-    reader.skip_bytes(len as usize);
+    let position = reader.position() as usize;
+    let string_data = &reader.get_ref()[position..position + len as usize];
+    let data = CStr::from_bytes_with_nul(string_data)?;
+    reader.seek(SeekFrom::Current(len as i64))?;
 
     // Subtracting 1 to remove the trailing nul byte
     let result = ffi::luaS_newlstr(l.raw(), data.as_ptr(), (len - 1) as _);
@@ -237,6 +250,5 @@ unsafe fn create_lua_vector<T>(l: &mut LuaState, len: i32) -> AnyResult<*mut T> 
         Ok(vector)
     } else {
         Err(ParseError::LuaApiError)?
-    }
+    };
 }
-

@@ -92,7 +92,7 @@ impl LuaState {
         self.raw
     }
 
-    pub fn call(&mut self, param_count: i32, result_count: i32) -> AnyResult<()> {
+    pub fn call(&mut self, _param_count: i32, _result_count: i32) -> AnyResult<()> {
         //unsafe {
         //    match ffi::lua_pcall(self.raw(), param_count, result_count, 0) as u32 {
         //        0 => Ok(()),

@@ -1,20 +1,46 @@
 use super::munge::{parser::ParseError, MungeName, MungeNode, MungeTreeNode};
 use crate::{
-    assets::{loader, munge},
-    utils, AnyResult,
+    args::ZenitArgs,
+    assets::loader::{self, AssetKind},
+    utils::fnv1a_hash,
+    AnyResult,
 };
 use bevy::{
     asset::{AssetIo, AssetIoError, BoxedFuture},
     prelude::*,
+    tasks::IoTaskPool,
     utils::HashMap,
 };
+use dashmap::DashMap;
 use std::{
+    ffi::CStr,
     fs::{self, File},
-    io::{self, BufReader, Seek, SeekFrom},
+    io::{self, BufReader, Read},
     path::{Component, Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 use thiserror::Error;
+
+pub struct MungeAssetIoPlugin;
+
+impl Plugin for MungeAssetIoPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(AssetServer::new(
+            MungeAssetIo::new(
+                app.world
+                    .get_resource::<ZenitArgs>()
+                    .expect("Zenit args resource not found")
+                    .game_root
+                    .clone(),
+            ),
+            app.world
+                .get_resource::<IoTaskPool>()
+                .expect("`IoTaskPool` resource not found.")
+                .0
+                .clone(),
+        ));
+    }
+}
 
 /// Asset IO with a special case handling for munge (.lvl) files. Otherwise it behaves like a custom
 /// file asset IO, although without change watch support.
@@ -27,8 +53,7 @@ use thiserror::Error;
 ///
 pub struct MungeAssetIo {
     root_path: PathBuf,
-    // TODO: use something like dashmap for a faster concurrent HashMap
-    cache: Mutex<HashMap<PathBuf, Arc<Mutex<MungeCache>>>>,
+    cache: DashMap<PathBuf, Arc<RwLock<MungeCache>>, ahash::RandomState>,
 }
 
 #[derive(Debug, Error)]
@@ -43,28 +68,36 @@ pub enum CacheOpenError {
     InvalidChildNode,
 }
 
+impl From<CacheOpenError> for io::Error {
+    fn from(error: CacheOpenError) -> io::Error {
+        match error {
+            CacheOpenError::IoError(err) => err,
+            _ => io::ErrorKind::InvalidData.into(),
+        }
+    }
+}
+
 impl MungeAssetIo {
     pub fn new<P: Into<PathBuf>>(root_path: P) -> Self {
         Self {
             root_path: root_path.into(),
-            cache: Mutex::new(HashMap::default()),
+            cache: DashMap::default(),
         }
     }
 
     /// Creates a new cache entry and returns it, or returns the existing one. May fail for IO
-    /// or file format reasons. The munge file must contain root child nodes.
+    /// or file format reasons.
     fn open<P: Into<PathBuf>>(
         &self,
-        munge_path: P,
-    ) -> Result<Arc<Mutex<MungeCache>>, CacheOpenError> {
-        let mut cache = self.cache.lock().expect("Posioned cache lock");
-
-        let munge_path = munge_path.into();
-        if !cache.contains_key(&munge_path) {
-            let cache_object = MungeCache::open(&munge_path)?;
-            cache.insert(munge_path.clone(), Arc::new(Mutex::new(cache_object)));
+        munge_file_path: P,
+    ) -> Result<Arc<RwLock<MungeCache>>, CacheOpenError> {
+        let file_path = munge_file_path.into();
+        if !self.cache.contains_key(&file_path) {
+            let cache_object = MungeCache::open(&file_path)?;
+            self.cache
+                .insert(file_path.clone(), Arc::new(RwLock::new(cache_object)));
         }
-        Ok(cache.get(&munge_path).unwrap().clone())
+        Ok(self.cache.get(&file_path).unwrap().clone())
     }
 }
 
@@ -73,7 +106,60 @@ impl AssetIo for MungeAssetIo {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, AnyResult<Vec<u8>, AssetIoError>> {
-        Box::pin(async move { todo!() })
+        Box::pin(async move {
+            if let Some((file_path, munge_path)) = MungePath::parse_path(path) {
+                let cache_arc = self.open(&file_path).map_err(|err| io::Error::from(err))?;
+                let mut cache = cache_arc.write().unwrap();
+
+                match munge_path {
+                    MungePath::RootObject(name) => {
+                        let node = cache
+                            .root_assets
+                            .iter()
+                            .find(|asset| asset.name == name)
+                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                            .node
+                            .clone();
+
+                        Ok(node.read_contents(&mut cache.file)?)
+                    }
+                    MungePath::SectionObject {
+                        section_name,
+                        object_name,
+                    } => {
+                        let hash = fnv1a_hash(section_name.as_bytes());
+                        let node = cache
+                            .sections
+                            .get(&hash)
+                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                            .iter()
+                            .find(|asset| asset.name == object_name)
+                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                            .node
+                            .clone();
+
+                        Ok(node.read_contents(&mut cache.file)?)
+                    }
+                    _ => Err(io::Error::from(io::ErrorKind::InvalidInput).into()),
+                }
+            } else {
+                let mut bytes = Vec::new();
+                let full_path = self.root_path.join(path);
+                match File::open(&full_path) {
+                    Ok(mut file) => {
+                        file.read_to_end(&mut bytes)?;
+                    }
+                    Err(e) => {
+                        return if e.kind() == std::io::ErrorKind::NotFound {
+                            Err(AssetIoError::NotFound(full_path))
+                        } else {
+                            Err(e.into())
+                        }
+                    }
+                }
+                Ok(bytes)
+            }
+        })
     }
 
     fn read_directory(
@@ -81,7 +167,35 @@ impl AssetIo for MungeAssetIo {
         path: &Path,
     ) -> AnyResult<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         if let Some((file_path, munge_path)) = MungePath::parse_path(path) {
-            todo!()
+            let cache_arc = self.open(&file_path).map_err(|err| io::Error::from(err))?;
+            let cache = cache_arc.read().expect("lock poisoned");
+
+            match munge_path {
+                MungePath::RootDirectory => Ok(Box::new(
+                    cache.root_assets.clone().into_iter().map(move |asset| {
+                        let mut result = PathBuf::new();
+                        result.push(file_path.clone());
+                        result.push(asset.make_filename());
+                        result
+                    }),
+                )),
+                MungePath::SectionDirectory(name) => {
+                    let hash = fnv1a_hash(name.as_bytes());
+                    let assets = cache
+                        .sections
+                        .get(&hash)
+                        .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?;
+
+                    Ok(Box::new(assets.clone().into_iter().map(move |asset| {
+                        let mut result = PathBuf::new();
+                        result.push(file_path.clone());
+                        result.push(format!("${}", name));
+                        result.push(asset.make_filename());
+                        result
+                    })))
+                }
+                _ => Err(io::Error::from(io::ErrorKind::InvalidInput).into()),
+            }
         } else {
             let root_path = self.root_path.to_owned();
             Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
@@ -169,9 +283,9 @@ impl MungePath {
                     };
 
                     if path_string.ends_with(".lvl") {
-                        //if !file_path.is_file() {
-                        //    return None;
-                        //}
+                        if !file_path.is_file() {
+                            return None;
+                        }
                         path_kind = Some(MungePath::RootDirectory);
                     }
                 }
@@ -192,18 +306,33 @@ impl MungePath {
     }
 }
 
+/// Representation of a single cached munge file. Contains information about root assets and assets
+/// within sections.
 #[derive(Debug)]
 struct MungeCache {
     pub file: BufReader<File>,
-    pub root_node: MungeTreeNode,
-    pub root_children: HashMap,
+    //pub root_node: MungeTreeNode,
+    pub root_assets: Vec<AssetNode>,
     pub sections: HashMap<u32, Vec<AssetNode>>,
 }
 
-#[derive(Debug)]
+/// Represents an asset node and its cached name.
+#[derive(Debug, Clone)]
 struct AssetNode {
     pub node: MungeNode,
     pub name: String,
+}
+
+impl AssetNode {
+    pub fn make_filename(&self) -> String {
+        format!(
+            "{}.{}",
+            &self.name,
+            AssetKind::from_node_name(self.node.name)
+                .expect("unsupported asset type")
+                .extension()
+        )
+    }
 }
 
 impl MungeCache {
@@ -217,19 +346,63 @@ impl MungeCache {
             use std::os::windows::fs::OpenOptionsExt;
             open_options.share_mode(1);
         }
-
         let mut file = BufReader::new(open_options.open(path)?);
-        let root_node = MungeTreeNode::parse(&mut file, Some(2)).map_err(|err| match err {
+
+        let mut root_node = MungeTreeNode::parse(&mut file, Some(2)).map_err(|err| match err {
             ParseError::InvalidNode => CacheOpenError::InvalidRootNode,
             ParseError::IoError(err) => CacheOpenError::IoError(err),
         })?;
 
-        let root_children = root_node
-            .children
-            .iter()
-            .
+        let mut root_children = Vec::new();
+        let mut sections = HashMap::default();
 
+        let parse_asset = |file: &mut BufReader<File>, child: &MungeTreeNode| {
+            let name_bytes = child
+                .children
+                .iter()
+                .find(|x| x.node.name == MungeName::from_literal("NAME"))
+                .ok_or(CacheOpenError::InvalidChildNode)?
+                .node
+                .read_contents(file)?;
 
-        todo!()
+            let name = CStr::from_bytes_with_nul(&name_bytes)
+                .map_err(|_| CacheOpenError::InvalidChildNode)?
+                .to_str()
+                .map_err(|_| CacheOpenError::InvalidChildNode)?
+                .to_string();
+
+            Result::<AssetNode, CacheOpenError>::Ok(AssetNode {
+                node: child.node,
+                name,
+            })
+        };
+
+        for child in &mut root_node.children {
+            if child.node.name == MungeName::from_literal("lvl_") {
+                let section_root = child
+                    .children
+                    .first_mut()
+                    .ok_or(CacheOpenError::InvalidChildNode)?;
+
+                section_root.parse_tree(&mut file, Some(2))?;
+
+                let node_hash: u32 = section_root.node.name.into();
+                let mut assets = Vec::new();
+                for child in &section_root.children {
+                    assets.push(parse_asset(&mut file, child)?);
+                }
+
+                sections.insert(node_hash, assets);
+            } else if loader::is_loadable(child.node.name) {
+                root_children.push(parse_asset(&mut file, child)?);
+            }
+        }
+
+        Ok(MungeCache {
+            file,
+            //root_node,
+            root_assets: root_children,
+            sections,
+        })
     }
 }
