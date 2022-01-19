@@ -1,7 +1,8 @@
-use self::texture::MungeTextureLoaderPlugin;
+use self::{script::CompiledScriptLoaderPlugin, texture::MungeTextureLoaderPlugin};
 use super::munge::MungeName;
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
+pub mod script;
 pub mod texture;
 
 pub const LOADABLE_NODES: &'static [MungeName] = &[
@@ -17,6 +18,8 @@ pub struct LoaderPlugins;
 
 impl PluginGroup for LoaderPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
-        group.add(MungeTextureLoaderPlugin);
+        group
+            .add(MungeTextureLoaderPlugin)
+            .add(CompiledScriptLoaderPlugin);
     }
 }

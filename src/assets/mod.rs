@@ -3,6 +3,7 @@ pub mod loader;
 pub mod munge_asset_io;
 pub mod munge;
 pub mod texture;
+pub mod script;
 
 pub use munge_asset_io::MungeAssetIoPlugin;
 
