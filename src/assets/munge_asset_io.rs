@@ -1,7 +1,7 @@
 use super::munge::{parser::ParseError, MungeName, MungeNode, MungeTreeNode};
 use crate::{
     args::ZenitArgs,
-    assets::loader::{self, AssetKind},
+    assets::{loader, AssetKind},
     utils::fnv1a_hash,
     AnyResult,
 };

@@ -1,14 +1,33 @@
-use std::io::Cursor;
 use crate::{
-    assets::munge::{MungeName, MungeTreeNode},
+    assets::{
+        munge::{MungeName, MungeTreeNode},
+        texture::{
+            FormatKind, MipmapLevel, MungeTexture, TextureFormat, TextureKind, TextureMipmaps,
+        },
+    },
     AnyResult,
 };
 use bevy::{
-    asset::{AssetLoader, BoxedFuture, LoadContext},
+    asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset},
     prelude::*,
-    reflect::TypeUuid,
 };
+use byteorder::{ReadBytesExt, LE};
+use anyhow::anyhow;
+use num_traits::FromPrimitive;
+use std::io::Cursor;
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MungeTextureLoaderPlugin;
+
+impl Plugin for MungeTextureLoaderPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_asset::<MungeTexture>()
+            .init_asset_loader::<MungeTextureLoader>();
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct MungeTextureLoader;
 
 impl AssetLoader for MungeTextureLoader {
@@ -23,11 +42,69 @@ impl AssetLoader for MungeTextureLoader {
 
             let name = root
                 .find(MungeName::from_literal("NAME"))
-                .ok_or(anyhow::anyhow!("Invalid texture node"))?
+                .ok_or(anyhow!("Invalid texture node"))?
                 .node
                 .read_string(&mut cursor)?;
 
-            todo!();
+            let formats = root
+                .children
+                .iter()
+                .filter(|x| x.node.name == MungeName::from_literal("FMT_"))
+                .map(|fmt_node| {
+                    let mut info_reader = fmt_node
+                        .find(MungeName::from_literal("INFO"))
+                        .ok_or(anyhow!("No format info node"))?
+                        .node
+                        .read_into_cursor(&mut cursor)?;
+
+                    let format = FormatKind::from_u32(info_reader.read_u32::<LE>()?)
+                        .ok_or(anyhow!("Invalid texture format"))?;
+                    let size = IVec2::new(
+                        info_reader.read_u16::<LE>()? as i32,
+                        info_reader.read_u16::<LE>()? as i32,
+                    );
+                    let mysterious_flags = info_reader.read_u16::<LE>()?;
+                    let _mipmap_amount = info_reader.read_u16::<LE>()?;
+
+                    let texture_kind = TextureKind::from_u32(info_reader.read_u32::<LE>()?)
+                        .ok_or(anyhow!("Invalid texture kind"))?;
+                    let mipmaps = match texture_kind {
+                        TextureKind::Normal => TextureMipmaps::Normal(
+                            fmt_node
+                                .children
+                                .iter()
+                                .filter(|x| x.node.name == MungeName::from_literal("LVL_"))
+                                .map(|node| mipmap_loader(&mut cursor, node))
+                                .collect::<AnyResult<Vec<MipmapLevel>>>()?,
+                        ),
+                        TextureKind::Cubemap => TextureMipmaps::Cubemap(
+                            fmt_node
+                                .children
+                                .iter()
+                                .map(|face_node| {
+                                    Ok(face_node
+                                        .children
+                                        .iter()
+                                        .filter(|x| x.node.name == MungeName::from_literal("LVL_"))
+                                        .map(|node| mipmap_loader(&mut cursor, node))
+                                        .collect::<AnyResult<Vec<MipmapLevel>>>()?)
+                                })
+                                .collect::<AnyResult<Vec<Vec<MipmapLevel>>>>()?
+                                .try_into()
+                                .unwrap(),
+                        ),
+                    };
+
+                    Ok(TextureFormat {
+                        size,
+                        format,
+                        mysterious_flags,
+                        mipmaps,
+                    })
+                })
+                .collect::<AnyResult<Vec<TextureFormat>>>()?;
+
+            load_context.set_default_asset(LoadedAsset::new(MungeTexture { name, formats }));
 
             Ok(())
         })
@@ -38,52 +115,19 @@ impl AssetLoader for MungeTextureLoader {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "8aa0f93e-8037-4742-8458-04ab5154e133"]
-pub struct MungeTexture {
-    pub name: String,
-    pub formats: Vec<TextureFormat>,
-}
+fn mipmap_loader(c: &mut Cursor<&[u8]>, node: &MungeTreeNode) -> AnyResult<MipmapLevel> {
+    let level = node
+        .find(MungeName::from_literal("INFO"))
+        .ok_or(anyhow!("Invalid texture mipmap (no info)"))?
+        .node
+        .read_into_cursor(c)?
+        .read_u32::<LE>()?;
 
-#[derive(Debug, Clone)]
-pub struct TextureFormat {
-    pub size: IVec2,
-    pub format: FormatKind,
-    pub kind: TextureKind,
-    pub mysterious_flags: u16,
-}
+    let data = node
+        .find(MungeName::from_literal("BODY"))
+        .ok_or(anyhow!("Invalid texture mipmap (no body)"))?
+        .node
+        .read_contents(c)?;
 
-#[derive(Debug, Clone)]
-pub enum TextureMipmaps {
-    Normal(Vec<MipmapLevel>),
-    Cubemap([Vec<MipmapLevel>; 6]),
-}
-
-#[derive(Debug, Clone)]
-pub struct MipmapLevel {
-    pub level: u32,
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u32)]
-pub enum FormatKind {
-    DXT1 = 0x31_54_58_44,
-    DXT3 = 0x33_54_58_44,
-    A8R8G8B8 = 0x15,
-    R5G6B5 = 0x17,
-    A1R5G5B5 = 0x19,
-    A4R4G4B4 = 0x1a,
-    A8 = 0x1c,
-    L8 = 0x32,
-    A8L8 = 0x33,
-    A4L4 = 0x34,
-    V8U8 = 0x3c,
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u32)]
-pub enum TextureKind {
-    Normal = 1,
-    Cubemap = 2,
+    Ok(MipmapLevel { level, data })
 }

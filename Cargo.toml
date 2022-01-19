@@ -19,6 +19,15 @@ dashmap = "5.0.0"
 ahash = "0.7.6"
 bevy = { version = "0.6", features = ["dynamic"] } # TODO: don't do bevy dynlibs on release profile
 
+# Importing those becuase of the FromPrimitive trait for enums
+# Rust for some reason doesn't provide that support on its own, and creating custom proc macros
+# for Zenit would be more hassle than it's worth and would involve creating 2 crates and more
+# problems.
+#
+# Why the fuck, Rust.
+num-traits = "0.2.14"
+num-derive = "0.3.3"
+
 [build-dependencies]
 cc = "1.0.72"
 bindgen = "0.59.2"

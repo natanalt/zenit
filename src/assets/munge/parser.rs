@@ -4,7 +4,7 @@ use super::{MungeName, MungeNode, MungeTreeNode};
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CStr,
-    io::{self, Read, Seek, SeekFrom},
+    io::{self, Cursor, Read, Seek, SeekFrom},
 };
 use thiserror::Error;
 
@@ -63,6 +63,13 @@ impl MungeNode {
         Ok(CStr::from_bytes_with_nul(&self.read_contents(r)?)?
             .to_str()?
             .to_owned())
+    }
+
+    pub fn read_into_cursor<Reader: Read + Seek>(
+        &self,
+        r: &mut Reader,
+    ) -> io::Result<Cursor<Vec<u8>>> {
+        Ok(Cursor::new(self.read_contents(r)?))
     }
 
     /// Attempts to interpret the internal node data as if it contained child nodes. This is not
