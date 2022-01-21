@@ -7,12 +7,12 @@ use crate::{
     },
     AnyResult,
 };
+use anyhow::anyhow;
 use bevy::{
     asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset},
     prelude::*,
 };
 use byteorder::{ReadBytesExt, LE};
-use anyhow::anyhow;
 use num_traits::FromPrimitive;
 use std::io::Cursor;
 
@@ -21,8 +21,7 @@ pub struct MungeTextureLoaderPlugin;
 
 impl Plugin for MungeTextureLoaderPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_asset::<MungeTexture>()
+        app.add_asset::<MungeTexture>()
             .init_asset_loader::<MungeTextureLoader>();
     }
 }
@@ -42,9 +41,11 @@ impl AssetLoader for MungeTextureLoader {
 
             let name = root
                 .find(MungeName::from_literal("NAME"))
-                .ok_or(anyhow!("Invalid texture node"))?
+                .ok_or(anyhow!("Invalid texture node (no name)"))?
                 .node
                 .read_string(&mut cursor)?;
+
+            info!("Loading texture `{}`", &name);
 
             let formats = root
                 .children
@@ -71,6 +72,8 @@ impl AssetLoader for MungeTextureLoader {
                     let mipmaps = match texture_kind {
                         TextureKind::Normal => TextureMipmaps::Normal(
                             fmt_node
+                                .find(MungeName::from_literal("FACE"))
+                                .ok_or(anyhow!("Invalid texture format (no single face)"))?
                                 .children
                                 .iter()
                                 .filter(|x| x.node.name == MungeName::from_literal("LVL_"))
@@ -81,6 +84,7 @@ impl AssetLoader for MungeTextureLoader {
                             fmt_node
                                 .children
                                 .iter()
+                                .filter(|x| x.node.name == MungeName::from_literal("FACE"))
                                 .map(|face_node| {
                                     Ok(face_node
                                         .children

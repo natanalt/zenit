@@ -9,6 +9,7 @@ pub mod assets;
 pub mod lua;
 pub mod utils;
 pub mod loading;
+pub mod states;
 
 pub type AnyResult<T, E = anyhow::Error> = anyhow::Result<T, E>;
 
@@ -19,5 +20,6 @@ fn main() {
             group.add_before::<AssetPlugin, _>(MungeAssetIoPlugin)
         })
         .add_plugins(LoaderPlugins)
+        .add_state(states::State::Shell)
         .run();
 }

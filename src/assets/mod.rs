@@ -13,6 +13,7 @@ use self::munge::MungeName;
 pub enum AssetKind {
     Script,
     Texture,
+    Unsupported,
 }
 
 impl AssetKind {
@@ -20,22 +21,24 @@ impl AssetKind {
         match self {
             AssetKind::Script => "luac",
             AssetKind::Texture => "ztexture",
+            AssetKind::Unsupported => "unsupported",
         }
     }
 
-    pub fn from_node_name(n: MungeName) -> Option<AssetKind> {
-        match n.to_string().as_str() {
-            "scr_" => Some(AssetKind::Script),
-            "tex_" => Some(AssetKind::Texture),
-            _ => None,
+    pub fn from_node_name(n: MungeName) -> AssetKind {
+        let stringified: String = n.try_into().expect("invalid asset node name");
+        match stringified.as_str() {
+            "scr_" => AssetKind::Script,
+            "tex_" => AssetKind::Texture,
+            _ => AssetKind::Unsupported,
         }
     }
 
-    pub fn from_extension(s: &str) -> Option<AssetKind> {
+    pub fn from_extension(s: &str) -> AssetKind {
         match s {
-            "luac" => Some(AssetKind::Script),
-            "ztexture" => Some(AssetKind::Texture),
-            _ => None,
+            "luac" => AssetKind::Script,
+            "ztexture" => AssetKind::Texture,
+            _ => AssetKind::Unsupported,
         }
     }
 }

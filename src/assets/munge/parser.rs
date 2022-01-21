@@ -1,7 +1,7 @@
 use crate::AnyResult;
 
 use super::{MungeName, MungeNode, MungeTreeNode};
-use byteorder::{ReadBytesExt, LE};
+use byteorder::{ReadBytesExt, LE, WriteBytesExt};
 use std::{
     ffi::CStr,
     io::{self, Cursor, Read, Seek, SeekFrom},
@@ -44,6 +44,14 @@ impl MungeNode {
             offset,
             length,
         })
+    }
+
+    pub fn read_with_header<Reader: Read + Seek>(&self, r: &mut Reader) -> io::Result<Vec<u8>> {
+        let mut result = Vec::new();
+        result.write_u32::<LE>(self.name.into())?;
+        result.write_u32::<LE>(self.length)?;
+        result.append(&mut self.read_contents(r)?);
+        Ok(result)
     }
 
     /// Reads the internal node data into a `Vec<u8>` from given `Read + Seek` reader.

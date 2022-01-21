@@ -106,40 +106,37 @@ impl AssetIo for MungeAssetIo {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, AnyResult<Vec<u8>, AssetIoError>> {
+        info!("Loading `{:?}`", path);
         Box::pin(async move {
             if let Some((file_path, munge_path)) = MungePath::parse_path(path) {
-                let cache_arc = self.open(&file_path).map_err(|err| io::Error::from(err))?;
+                let full_file_path = self.root_path.join(&file_path);
+                let cache_arc = self
+                    .open(&full_file_path)
+                    .map_err(|err| io::Error::from(err))?;
                 let mut cache = cache_arc.write().unwrap();
 
                 match munge_path {
-                    MungePath::RootObject(name) => {
-                        let node = cache
-                            .root_assets
-                            .iter()
-                            .find(|asset| asset.name == name)
-                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
-                            .node
-                            .clone();
-
-                        Ok(node.read_contents(&mut cache.file)?)
-                    }
+                    MungePath::RootObject(name) => Ok(cache
+                        .root_assets
+                        .iter()
+                        .find(|asset| asset.make_filename() == name)
+                        .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                        .node
+                        .clone()
+                        .read_with_header(&mut cache.file)?),
                     MungePath::SectionObject {
                         section_name,
                         object_name,
-                    } => {
-                        let hash = fnv1a_hash(section_name.as_bytes());
-                        let node = cache
-                            .sections
-                            .get(&hash)
-                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
-                            .iter()
-                            .find(|asset| asset.name == object_name)
-                            .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
-                            .node
-                            .clone();
-
-                        Ok(node.read_contents(&mut cache.file)?)
-                    }
+                    } => Ok(cache
+                        .sections
+                        .get(&fnv1a_hash(section_name.as_bytes()))
+                        .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                        .iter()
+                        .find(|asset| asset.make_filename() == object_name)
+                        .ok_or_else(|| AssetIoError::NotFound(path.to_owned()))?
+                        .node
+                        .clone()
+                        .read_with_header(&mut cache.file)?),
                     _ => Err(io::Error::from(io::ErrorKind::InvalidInput).into()),
                 }
             } else {
@@ -283,9 +280,9 @@ impl MungePath {
                     };
 
                     if path_string.ends_with(".lvl") {
-                        if !file_path.is_file() {
-                            return None;
-                        }
+                        //if !file_path.is_file() {
+                        //    return None;
+                        //}
                         path_kind = Some(MungePath::RootDirectory);
                     }
                 }
@@ -328,9 +325,7 @@ impl AssetNode {
         format!(
             "{}.{}",
             &self.name,
-            AssetKind::from_node_name(self.node.name)
-                .expect("unsupported asset type")
-                .extension()
+            AssetKind::from_node_name(self.node.name).extension()
         )
     }
 }
