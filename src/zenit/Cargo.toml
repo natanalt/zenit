@@ -1,0 +1,8 @@
+[package]
+name = "zenit"
+version = "0.1.0"
+
+[dependencies]
+zenit_lvl = { path = "../zenit_lvl", version = "0.1.0" }
+zenit_lua = { path = "../zenit_lua", version = "0.1.0" }
+zenit_utils = { path = "../zenit_utils", version = "0.1.0" }

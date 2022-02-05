@@ -22,7 +22,7 @@
 // i despise C
 
 use super::{ffi, LuaState};
-use crate::{error_if, AnyResult};
+use zenit_utils::{error_if, AnyResult};
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CStr,

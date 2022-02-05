@@ -1,33 +1,13 @@
 
 > Zenit Notes
   -----------
-  Note: the notes are outdated, as the Lua approach has been changing a
-  lot. Someday I'll rewrite them lol ~nat
-
-  This is slightly modified Lua 5.0.2 (same version as used by SWBF2, but
-  Pandemic applied slight mods), just with most non-interpreter files
-  removed. The only files remaining are:
-   * core Lua sources
-   * public Lua headers
-   * the Lua standard library
+  This is a slightly modified distribution of Lua 5.0.2 (same version as used
+  by BF2, although Pandemic modified it a bit in their builds). A lot of it has
+  been removed, leaving only basic stuff like the main VM or the standard Lua
+  library. Additionally a few small changes have been made (see lzenit.h and
+  lzenit.c files)
   
-  An important factor is the target architecture. SWBF2 ships its
-  Lua scripts as precompiled chunks, which contain their VM assumptions in
-  their headers. Those are, unfortunately, target specific, and depend on
-  values of int and size_t (4 bytes each).
-
-  A second, smaller modification was reformatting the source tree using
-  clang-foramt, with the default Webkit preset, to make it a bit easier
-  on the eyes.
-
-  Build used in SWBF2 may have been at least partially modified:
-   * size of the Lua number type was changed from 8 to 4 (double -> float
-     most likely)
-  
-  Lua is compiled from the build.rs script in the repo root directory.
-
-  Notes:
-   * apply macro TRUST_BINARIES
+  The library is compiled by zenit_lua's build.rs script.
 
   If you want to read the documentation of Lua 5.0.2, you can download the
   official distribution and get it from there:

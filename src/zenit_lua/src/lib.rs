@@ -9,7 +9,7 @@
 //!
 
 use thiserror::Error;
-use crate::AnyResult;
+use zenit_utils::AnyResult;
 use std::ffi::CStr;
 
 pub mod chunk;
