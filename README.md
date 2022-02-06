@@ -1,12 +1,12 @@
 # 🚀 Zenit Engine
-Zenit is a project attempting to create an open-source engine compatible with data files *Star Wars Battlefront II (2005)'s* PC version.
+Zenit is a project attempting to create an open-source engine compatible with data files of *Star Wars Battlefront II (2005)'s* PC version.
 
 Unlike the impressive [Phoenix](https://github.com/LibSWBF2/SWBF2Phoenix) project, Zenit tries to stay more faithful to the original game's look and feel, while also being fully portable. This doesn't mean that it'll never allow any graphical fireworks, but its priority is to at the very least look like the original. Zenit and and all of its dependencies are also open-source, if that's your thing (even if it does lose on graphical goodies of Unity, which are used in Phoenix).
 
 It's still super early in its life and you can't even start it yet. Work is underway to make it at least load to menu, though. lol
 
 ## Building
-You need a nightly build of the Rust compiler (`rustup toolchain add nightly`) and a C compiler like MSVC, GCC, or Clang. Running `cargo build` will build all Zenit crates.
+You need a nightly build of the Rust compiler (`rustup toolchain add nightly`) and a C compiler that can cooperate with Rust, like MSVC, GCC, or Clang. Running `cargo build` will build all Zenit crates. `cargo run` or `cargo run zenit` will run the main engine.
 
 ## Internal project structure
 The project is separated into multiple crates in the src directory:
