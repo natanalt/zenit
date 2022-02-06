@@ -1,7 +1,7 @@
 name: Run unit tests
 on: [push]
 jobs:
-  build-and-deploy:
+  run-unit-tests:
     concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     steps:
