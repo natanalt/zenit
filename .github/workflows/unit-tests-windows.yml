@@ -16,6 +16,11 @@ jobs:
       - name: 📦 Checkout
         uses: actions/checkout@v2
 
+      - name: 🦀 Install Rust components
+        run: |
+          cargo install -f cargo-binutils
+          rustup component add llvm-tools-preview
+
       - name: 🏗️ Build
         run: cargo build
 
