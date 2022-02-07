@@ -13,8 +13,30 @@ jobs:
   unit-tests:
     runs-on: windows-latest
     steps:
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            C:/Program Files/LLVM
+            ./llvm
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: 📦 Checkout
         uses: actions/checkout@v2
+
+      - name: ❓ Install LLVM and Clang # required for bindgen to work, see https://github.com/rust-lang/rust-bindgen/issues/1797
+        uses: KyleMayes/install-llvm-action@32c4866ebb71e0949e8833eb49beeebed48532bd
+        with:
+          version: "11.0"
+          directory: ${{ runner.temp }}/llvm
+      
+      - name: ❓ Set LIBCLANG_PATH
+        run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
+        if: matrix.config.os == 'windows-latest'
 
       - name: 🦀 Install Rust components
         run: |
