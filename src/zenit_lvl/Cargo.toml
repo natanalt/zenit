@@ -2,3 +2,10 @@
 name = "zenit_lvl"
 version = "0.1.0"
 edition = "2021"
+description = "SWBF2 level file reader and writer"
+authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
+
+[dependencies]
+anyhow = "1.0.52"
+thiserror = "1.0.30"
+byteorder = "1.4.3"

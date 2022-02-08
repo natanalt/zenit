@@ -2,6 +2,8 @@
 name = "zenit_utils"
 version = "0.1.0"
 edition = "2021"
+description = "General purpose utilities and shared code of Zenit"
+authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
 anyhow = "1.0.52"

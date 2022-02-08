@@ -397,6 +397,8 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "zenit"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "thiserror",
  "zenit_lua",
  "zenit_lvl",
  "zenit_utils",
@@ -419,6 +421,11 @@ dependencies = [
 [[package]]
 name = "zenit_lvl"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "thiserror",
+]
 
 [[package]]
 name = "zenit_utils"
