@@ -20,12 +20,16 @@ impl NodeName {
     /// ## Examples
     /// Basic usage:
     /// ```
+    /// use zenit_lvl::node::NodeName;
+    /// 
     /// let name = NodeName::from_str("FMT_");
-    /// assert_eq!(name.into(), 0x5f544d46);
+    /// assert_eq!(0x5f544d46u32, name.into());
     /// ```
     ///
     /// Invalid usage:
     /// ```should_panic
+    /// use zenit_lvl::node::NodeName;
+    /// 
     /// let _ = NodeName::from_str("too long");
     /// ```
     ///
