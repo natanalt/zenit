@@ -1,14 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
-#[derive(Debug, Clone, Copy)]
-pub struct LevelNode {
-    pub name: NodeName,
-    pub offset: u64,
-    pub size: u32,
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodeName([u8; 4]);
+pub struct NodeName(pub [u8; 4]);
 
 impl NodeName {
     /// Creates a NodeName from a provided string slice. It's meant to be used in places like
