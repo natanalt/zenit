@@ -9,3 +9,4 @@ authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 anyhow = "1.0.52"
 thiserror = "1.0.30"
 byteorder = "1.4.3"
+zenit_lvl_proc = { path = "../zenit_lvl_proc", version = "0.1.0" }

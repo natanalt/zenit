@@ -188,6 +188,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "litrs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9275e0933cf8bb20f008924c0cb07a0692fe54d8064996520bf998de9eb79aa"
+dependencies = [
+ "proc-macro2",
+]
+
+[[package]]
 name = "log"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -401,6 +410,7 @@ dependencies = [
  "thiserror",
  "zenit_lua",
  "zenit_lvl",
+ "zenit_lvl_proc",
  "zenit_utils",
 ]
 
@@ -425,6 +435,17 @@ dependencies = [
  "anyhow",
  "byteorder",
  "thiserror",
+ "zenit_lvl_proc",
+]
+
+[[package]]
+name = "zenit_lvl_proc"
+version = "0.1.0"
+dependencies = [
+ "litrs",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

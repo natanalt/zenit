@@ -8,13 +8,24 @@ Unlike the impressive [Phoenix](https://github.com/LibSWBF2/SWBF2Phoenix) projec
 It's still super early in its life and you can't even start it yet. Work is underway to make it at least load to menu, though. lol
 
 ## Building
-You need a nightly build of the Rust compiler (`rustup toolchain add nightly`) and a C compiler that can cooperate with Rust, like MSVC, GCC, or Clang. Running `cargo build` will build all Zenit crates. `cargo run` or `cargo run zenit` will run the main engine.
+To build Zenit you need:
+ * a nightly build of Rust (`rustup toolchain add nightly`)
+ * a C compiler that can be accepted by Rust, like MSVC on Windows, etc.
+ * `cargo-binutils` and `llvm-tools-preview`:
+   ```sh
+   $ cargo install -f cargo-binutils
+   $ rustup component add llvm-tools-preview
+   ```
+ * on macOS, `brew install michaeleisel/zld/zld`
+
+I think that's all, you can also look at the automated workflows in the [.github/workflows](.github/workflows) directory.
 
 ## Internal project structure
 The project is separated into multiple crates in the src directory:
  * **src/zenit_utils** - general utilities and shared code
  * **src/zenit_lua** - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
  * **src/zenit_lvl** - loader of BF2's level files, not dependent on anything besides utilities
+ * **src/zenit_lvl_proc** - proc macros for `zenit_lvl`
  * **src/zenit** - the main engine and the core of Zenit's codebase
 
 Stuff that's not currently there but may be added in the future:
