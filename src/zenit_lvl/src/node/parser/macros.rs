@@ -45,7 +45,7 @@
 /// ```
 /// 
 /// A structural definition may also define a packed format:
-/// ```
+/// ```ignore
 /// {
 ///     // Fields don't have *any* padding and will be parsed sequentially, with multibyte values
 ///     // read in little endian format

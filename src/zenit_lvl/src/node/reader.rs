@@ -20,7 +20,7 @@ where
     ///
     /// /// Example:
     /// ```no_run
-    /// use zenit_lvl::node::{LevelNode, NodeName, read::{NodeReadExt, accept_children_of}};
+    /// use zenit_lvl::node::{LevelNode, NodeName, reader::{NodeReadExt, accept_children_of}};
     /// use std::fs::File;
     ///
     /// let mut file: File = todo!("example source, in this case, an open file");
