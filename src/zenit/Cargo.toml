@@ -1,12 +1,13 @@
 [package]
 name = "zenit"
 version = "0.1.0"
+edition = "2021"
 description = "Open-source engine replacement for Star Wars Battlefront II (2005)"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
 zenit_lvl = { path = "../zenit_lvl", version = "0.1.0" }
-zenit_lvl_proc = { path = "../zenit_lvl_proc", version = "0.1.0" }
+zenit_proc = { path = "../zenit_proc", version = "0.1.0" }
 zenit_lua = { path = "../zenit_lua", version = "0.1.0" }
 zenit_utils = { path = "../zenit_utils", version = "0.1.0" }
 anyhow = "1.0.52"

@@ -1,7 +1,7 @@
 
 // TODO: cleanup `define_node_type!`
 
-/// An overcomplicated structural node type and parser generator, backed by [`zenit_lvl_proc`]
+/// An overcomplicated structural node type and parser generator, backed by [`zenit_proc`]
 /// derive and attribute macros.
 /// 
 /// The core syntax of this macro is:
@@ -59,12 +59,12 @@
 macro_rules! define_node_type {
     // Packed data node that I could put in node_type_impl! but it works more conveniently over here 
     ($root_name:literal as $root_type:ident {
-        $($field_name:ident: $field_type:ty $(as $source_type:ty)?,)*
+        $($field_name:ident: $field_type:ty $(as $source_type:ty)? ,)*
     }) => {
-        #[derive(Debug, Clone, zenit_lvl_proc::PackedParser)]
+        #[derive(Debug, Clone, zenit_proc::PackedParser)]
         pub struct $root_type {
             $(
-                $(#[reinterpret($source_type)])?
+                $( #[reinterpret( $source_type )] )?
                 pub $field_name: $field_type,
             )*
         }
@@ -87,7 +87,7 @@ macro_rules! node_type_impl {
         __node_break_line__
         $($child_node_name:literal, $field_name:ident, $field_type:ty,)*
     ) => {
-        #[derive(Debug, Clone, zenit_lvl_proc::NodeParser)]
+        #[derive(Debug, Clone, zenit_proc::NodeParser)]
         pub struct $type_name {
             $(
                 #[node($child_node_name)]

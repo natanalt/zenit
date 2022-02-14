@@ -7,3 +7,5 @@ authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
 anyhow = "1.0.52"
+thiserror = "1.0.30"
+byteorder = "1.4.3"

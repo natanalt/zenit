@@ -25,7 +25,7 @@ The project is separated into multiple crates in the src directory:
  * **src/zenit_utils** - general utilities and shared code
  * **src/zenit_lua** - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
  * **src/zenit_lvl** - loader of BF2's level files, not dependent on anything besides utilities
- * **src/zenit_lvl_proc** - proc macros for `zenit_lvl`
+ * **src/zenit_proc** - proc macros for `zenit_lvl`
  * **src/zenit** - the main engine and the core of Zenit's codebase
 
 Stuff that's not currently there but may be added in the future:

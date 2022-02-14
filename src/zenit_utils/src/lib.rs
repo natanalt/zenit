@@ -1,9 +1,18 @@
 //! Various utilities used by the various code
 
-mod fnv1a;
+pub mod fnv1a;
 pub use fnv1a::fnv1a_hash;
 
+pub mod packed;
+
 pub type AnyResult<T, E = anyhow::Error> = anyhow::Result<T, E>;
+
+/// Used by the `ext_repr` proc macro
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+pub enum EnumParseError {
+    #[error("invalid input")]
+    InvalidInput
+}
 
 /// Useful where it's useful lol
 /// 

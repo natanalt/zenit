@@ -1,8 +1,9 @@
+use zenit_proc::ext_repr;
 
-#[repr(u32)]
+#[ext_repr(u32)]
 #[derive(Debug, Clone)]
 pub enum FormatKind { A }
-#[repr(u32)]
+#[ext_repr(u32)]
 #[derive(Debug, Clone)]
 pub enum TextureKind { A }
 

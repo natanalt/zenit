@@ -1,5 +1,4 @@
 //! Implementation of SWBF2 style FNV-1a hashing
-//! 
 
 pub const FNV_PRIME: u32 = 16777619;
 pub const OFFSET_BASIS: u32 = 2166136261;
