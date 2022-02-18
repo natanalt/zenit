@@ -5,8 +5,8 @@
 /// derive and attribute macros.
 /// 
 /// The core syntax of this macro is:
-/// ```ignore
-/// define_node_type! {
+/// ```
+/// zenit_lvl::define_node_type! {
 ///     // "name" is the 4-byte node identifier
 ///     "name" as RootTypeName {
 ///         // structural definition
@@ -20,39 +20,50 @@
 /// 
 /// The hierarchical variant is as follows
 /// ```ignore
-/// {
-///     // NOTE: mind the commas, the parser is very strict about them
-///     
-///     // TODO: optional variant for zero or one node instances
-///     // something like "abcd" -> field_name: Option<FieldType> { /* optional s.d. */ }
+/// zenit_lvl::define_node_type! {
+///     "name" as RootTypeName {
+///         // NOTE: mind the commas, the parser is very strict about them
 /// 
-///     // New structural definition. This will expect a *single* node of ID "exm1", and create a new
-///     // type called FieldType containing its fields
-///     "exm1" -> field_name1: FieldType { /* structural definition */ }
+///         // TODO: optional variant for zero or one node instances
+///         // something like "abcd" -> field_name: Option<FieldType0> { /* optional def */ }
 /// 
-///     // New structural definition. This will expect zero or more nodes of given format, defined
-///     // within the macro. 
-///     "exm2" -> field_name2: Vec<FieldType> { /* structural definition */ }
-///     
-///     // External definition, expecting a single node of this type.
-///     // External types require definition of the [`NodeDeserializer`] trait, implemented by this
-///     // macro and for some common types (see [`NodeDeserializer`] docs for details) 
-///     "exm3" -> field_name3: FieldType,
+///         // New structural definition. This will expect a *single* node of ID "exm1", and create a new
+///         // type called FieldType containing its fields
+///         "exm1" -> field_name1: FieldType1 { /* structural definition */ }
 /// 
-///     // External definition, expecting zero or more nodes of this type
-///     "exm4" -> field_name4: Vec<FieldType>,
+///         // New structural definition. This will expect zero or more nodes of given format, defined
+///         // within the macro. 
+///         "exm2" -> field_name2: Vec<FieldType2> { /* structural definition */ }
+/// 
+///         // External definition, expecting a single node of this type.
+///         // External types require definition of the [`NodeDeserializer`] trait, implemented by this
+///         // macro and for some common types (see [`NodeDeserializer`] docs for details) 
+///         "exm3" -> field_name3: FieldType3,
+/// 
+///         // External definition, expecting zero or more nodes of this type
+///         "exm4" -> field_name4: Vec<FieldType4>,
+///     }
 /// }
 /// ```
 /// 
 /// A structural definition may also define a packed format:
-/// ```ignore
-/// {
-///     // Fields don't have *any* padding and will be parsed sequentially, with multibyte values
-///     // read in little endian format
-///     field_a: u32,
-///     // AnEnumWithReprU32 must implement num_traits::FromPrimitive
-///     field_b: AnEnumWithReprU32 as u32,
-///     another_field: u8,
+/// ```
+/// #[zenit_proc::ext_repr(u32)]
+/// #[derive(Debug, Clone, Copy)]
+/// enum AnEnumWithReprU32 {
+///     Value1,
+///     Value2,
+///     Value3,
+/// }
+/// 
+/// zenit_lvl::define_node_type! {
+///     "name" as RootTypeName {
+///         // Fields don't have *any* padding and will be parsed sequentially, with multibyte values
+///         // read in little endian format
+///         field_a: u32,
+///         field_b: AnEnumWithReprU32 as u32,
+///         another_field: u8,
+///     }
 /// }
 /// ```
 #[macro_export]

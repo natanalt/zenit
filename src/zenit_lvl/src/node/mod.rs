@@ -1,8 +1,10 @@
 use std::fmt::{Debug, Display, Formatter};
 
 pub mod reader;
-pub mod writer;
+mod builder;
 pub mod parser;
+
+pub use builder::NodeBuilder;
 
 /// Represents a node in a level file.
 #[derive(Debug, Clone)]
@@ -10,15 +12,6 @@ pub struct LevelNode {
     pub name: NodeName,
     pub payload_offset: u64,
     pub payload_size: u32,
-    pub payload: NodePayload,
-}
-
-#[derive(Debug, Clone)]
-pub enum NodePayload {
-    /// Represents raw data
-    Raw(Vec<u8>),
-    /// Represents all children whose metadata **was loaded**.
-    Hierarchy(Vec<LevelNode>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,12 +50,21 @@ impl NodeName {
 
     /// Returns a [`&str`] if this name can be interpreted as such.
     pub fn to_str(&self) -> Option<&str> {
-        let is_valid = self.0.iter().all(|c| !u8::is_ascii_control(c));
-        if is_valid {
-            std::str::from_utf8(&self.0).ok()
-        } else {
-            None
-        }
+        self.0
+            .into_iter()
+            .all(is_accepted_name_byte)
+            .then(|| std::str::from_utf8(&self.0).ok())
+            .flatten()
+    }
+
+    /// Creates a `NodeName` out of an FNV-1a hash of given string
+    pub fn from_hash(s: &str) -> NodeName {
+        zenit_utils::fnv1a_hash(s.as_bytes()).into()
+    }
+
+    /// The most common node name of root nodes, `ucfb`
+    pub const fn root() -> NodeName {
+        NodeName::from_str("ucfb")
     }
 }
 
@@ -82,18 +84,10 @@ impl TryInto<String> for NodeName {
     type Error = ();
 
     fn try_into(self) -> Result<String, Self::Error> {
-        #[rustfmt::skip]
-        fn is_accepted_name_char(c: u8) -> bool {
-            (c >= b'a' && c <= b'z') ||
-            (c >= b'A' && c <= b'Z') ||
-            (c >= b'0' && c <= b'9') ||
-            (c == b'_')
-        }
-
         self.0
             .into_iter()
             .map(|c| {
-                if is_accepted_name_char(c) {
+                if is_accepted_name_byte(c) {
                     Ok(c as char)
                 } else {
                     Err(())
@@ -105,18 +99,32 @@ impl TryInto<String> for NodeName {
 
 impl Display for NodeName {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let inner = self.clone().try_into().unwrap_or_else(|_| {
-            format!(
-                "\\x{:02x} \\x{:02x} \\x{:02x} \\x{:02x}",
-                self.0[0], self.0[1], self.0[2], self.0[3]
-            )
-        });
-        write!(f, "NodeName {{ {} }}", inner)
+        if let Ok(s) = TryInto::<String>::try_into(self.clone()) {
+            write!(f, "{}", s)
+        } else {
+            write!(f, "{:?}", &self.0)
+        }
     }
 }
 
 impl Debug for NodeName {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self, f)
+        let mut tuple = f.debug_tuple("NodeName");
+
+        if let Ok(s) = TryInto::<String>::try_into(self.clone()) {
+            tuple.field(&s);
+        } else {
+            tuple.field(&self.0);
+        }
+
+        tuple.finish()
     }
+}
+
+#[rustfmt::skip]
+pub fn is_accepted_name_byte(c: u8) -> bool {
+    (c >= b'a' && c <= b'z') ||
+    (c >= b'A' && c <= b'Z') ||
+    (c >= b'0' && c <= b'9') ||
+    (c == b'_')
 }
