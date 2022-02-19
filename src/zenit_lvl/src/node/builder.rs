@@ -20,7 +20,7 @@ pub struct NodeBuilder<'w, W: Write + Seek> {
 }
 
 impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
-    pub fn new(w: &'w mut W, name: NodeName) -> AnyResult<Self> {
+    pub fn begin(w: &'w mut W, name: NodeName) -> AnyResult<Self> {
         let origin = w.stream_position()?;
         w.write_u32::<LE>(name.into())?;
         w.write_u32::<LE>(0)?; // will be overwritten
@@ -62,7 +62,7 @@ impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
     /// use zenit_utils::AnyResult;
     /// 
     /// let mut out = io::Cursor::new(vec![]); // usually this is a file or smth lol
-    /// let len = NodeBuilder::new(&mut out, NodeName::root())?
+    /// let len = NodeBuilder::begin(&mut out, NodeName::root())?
     ///     .build_node(NodeName::from_str("TEST"), |mut builder| {
     ///         Ok(builder
     ///             .write_raw(b"this is a test".as_ref())?
@@ -78,7 +78,7 @@ impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
     where
         F: FnOnce(NodeBuilder<'_, W>) -> AnyResult<u32>,
     {
-        let builder = NodeBuilder::new(self.w, name)?;
+        let builder = NodeBuilder::begin(self.w, name)?;
         let size = f(builder)?;
         self.inflate(size)?;
         self.written_nodes += 1;

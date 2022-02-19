@@ -34,7 +34,7 @@ crate::define_node_type! {
                             level: u32,
                             size: u32,
                         }
-                        "BODY" -> data: Vec<u8>,
+                        "BODY" -> data: Vec<u8>
                     }
                 }
             }

@@ -6,7 +6,7 @@ description = "Bindings for Zenit's build of BF2 compatible Lua 5.0.2"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
-zenit_utils = { path = "../zenit_utils", version = "0.1.0" }
+zenit_utils = { path = "../zenit_utils", version = "*" }
 anyhow = "1.0.52"
 thiserror = "1.0.30"
 byteorder = "1.4.3"
