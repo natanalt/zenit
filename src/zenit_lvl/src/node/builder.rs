@@ -61,18 +61,20 @@ impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
     /// use zenit_lvl::node::{NodeName, NodeBuilder};
     /// use zenit_utils::AnyResult;
     /// 
-    /// let mut out = io::Cursor::new(vec![]); // usually this is a file or smth lol
-    /// let len = NodeBuilder::begin(&mut out, NodeName::root())?
-    ///     .build_node(NodeName::from_str("TEST"), |mut builder| {
-    ///         Ok(builder
-    ///             .write_raw(b"this is a test".as_ref())?
-    ///             .finish()?)
-    ///     })?
-    ///     .finish()?;
-    /// 
-    /// assert_eq!(30, len);
-    /// 
-    /// Ok(())
+    /// fn main() -> AnyResult {
+    ///     let mut out = io::Cursor::new(vec![]); // usually this is a file or smth lol
+    ///     let len = NodeBuilder::begin(&mut out, NodeName::root())?
+    ///         .build_node(NodeName::from_str("TEST"), |mut builder| {
+    ///             Ok(builder
+    ///                 .write_raw(b"this is a test".as_ref())?
+    ///                 .finish()?)
+    ///         })?
+    ///         .finish()?;
+    ///     
+    ///     assert_eq!(30, len);
+    ///     
+    ///     Ok(())
+    /// }
     /// ```
     pub fn build_node<F>(&mut self, name: NodeName, f: F) -> AnyResult<&mut Self>
     where
