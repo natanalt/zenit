@@ -1,15 +1,15 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::Brace,
-    Ident, LitStr, PathArguments, Token, Type,
+    Ident, LitStr, Token, Type,
 };
-
 
 pub fn define_node_type(input: TokenStream) -> TokenStream {
     let root = parse_macro_input!(input as RootDefinition);
@@ -86,35 +86,193 @@ impl Parse for Structural {
 
 impl Structural {
     pub fn emit_type(&self, name: &Ident) -> TokenStream2 {
-        let definitions = self.0.iter().map(|sf| {
-            let child_node_name = &sf.node_name;
+        let fields = self.0.iter().map(|sf| {
             let field_name = &sf.field_name;
             let field_type = &sf.field_type;
 
             quote! {
-                #[node(#child_node_name)]
                 pub #field_name: #field_type
             }
         });
 
-        let inner = self.0.iter().filter(|sf| sf.inner.is_some()).map(|sf| {
-            let inner = sf.inner.as_ref().unwrap();
-            let inner_ty = extract_vec_type(&sf.field_type).unwrap_or(&sf.field_type);
+        let impl_node_parser = self.emit_node_parser_impl(name);
 
-            // Type is expected to be parseable as Ident
-            inner.emit_type(
-                type_as_ident(inner_ty).expect("expected identifier as Vec<T> inner type name"),
-            )
+        let inner = match self
+            .0
+            .iter()
+            .filter(|sf| sf.inner.is_some())
+            .map(|sf| {
+                let inner = sf.inner.as_ref().unwrap();
+                let inner_ty = sf.field_type.inner_type();
+                let ident = type_as_ident(inner_ty).ok_or(syn::Error::new(
+                    inner_ty.span(),
+                    "expected identifier as inner type name",
+                ))?;
+
+                Ok(inner.emit_type(ident))
+            })
+            .collect::<Result<TokenStream2, syn::Error>>()
+        {
+            Ok(ts) => ts,
+            Err(e) => return e.to_compile_error(),
+        };
+
+        quote! {
+            #[derive(Debug, Clone)]
+            pub struct #name {
+                #(#fields),*
+            }
+
+            #impl_node_parser
+
+            // Emit any types defined by this type
+            #inner
+        }
+    }
+
+    fn emit_node_parser_impl(&self, name: &Ident) -> TokenStream2 {
+        let fields = &self.0;
+
+        let variables = fields.iter().map(|s| {
+            let name = &s.field_name;
+            let field_type = &s.field_type;
+            let suffix = match field_type {
+                StructuralType::Alone(_) | StructuralType::Box(_) => {
+                    quote! { : Option<#field_type> = None }
+                }
+                StructuralType::Option(_) => {
+                    quote! { : #field_type = None }
+                }
+                StructuralType::Vec(_) => quote! { : #field_type = Vec::new() },
+            };
+
+            quote! {
+                let mut #name #suffix;
+            }
+        });
+
+        let node_conditionals = fields.iter().map(|s| {
+            let name = &s.field_name;
+            let node_name = &s.node_name;
+
+            let inner = match &s.field_type {
+                StructuralType::Alone(t) | StructuralType::Option(t) | StructuralType::Box(t) => {
+                    quote! {
+                        if #name.is_some() {
+                            anyhow::bail!("duplicated node `{}`", #node_name);
+                        }
+                        #name = Some(#t::parse_node(child, r)?.into());
+                    }
+                }
+                StructuralType::Vec(t) => quote! {
+                    #name.push(#t::parse_node(child, r)?);
+                },
+            };
+
+            quote! {
+                if child.name == NodeName::from_str(#node_name) {
+                    #inner
+                } else
+            }
+        });
+
+        let returns = fields.iter().map(|s| {
+            let name = &s.field_name;
+            let value = match s.field_type {
+                StructuralType::Alone(_) | StructuralType::Box(_) => Some({
+                    let node_name = s.node_name.value();
+                    let error_message = format!("expected value for node `{}`", node_name);
+                    let em_lit = LitStr::new(&error_message, s.node_name.span());
+
+                    quote! {
+                        : #name.ok_or(anyhow::anyhow!(#em_lit))?.into()
+                    }
+                }),
+                StructuralType::Vec(_) | StructuralType::Option(_) => None,
+            };
+
+            quote! {
+                #name #value,
+            }
         });
 
         quote! {
-            #[derive(Debug, Clone, zenit_proc::NodeParser)]
-            pub struct #name {
-                #(#definitions),*
-            }
+            impl ::zenit_lvl_core::node::NodeParser for #name {
+                fn parse_node<R: std::io::Read + std::io::Seek>(
+                    raw: ::zenit_lvl_core::node::LevelNode,
+                    r: &mut R
+                ) -> zenit_utils::AnyResult<Self> {
+                    use ::zenit_lvl_core::node::*;
 
-            #(#inner)*
+                    #(#variables)*
+
+                    let _children = raw
+                        .parse_children(r)?
+                        .ok_or(anyhow::anyhow!("expected valid hierarchy"))?;
+
+                    for child in _children {
+                        #(#node_conditionals)* {}
+                    }
+
+                    Ok(Self {
+                        #(#returns)*
+                    })
+                }
+            }
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum StructuralType {
+    Alone(Type),
+    Vec(Type),
+    Box(Type),
+    Option(Type),
+}
+
+impl StructuralType {
+    pub fn inner_type(&self) -> &Type {
+        match self {
+            StructuralType::Alone(t) => t,
+            StructuralType::Vec(t) => t,
+            StructuralType::Box(t) => t,
+            StructuralType::Option(t) => t,
+        }
+    }
+}
+
+impl Parse for StructuralType {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let first = input.fork().parse::<Ident>()?;
+        let name = first.to_string();
+        Ok(match name.as_str() {
+            "Vec" | "Box" | "Option" => {
+                input.parse::<Ident>()?;
+                input.parse::<Token![<]>()?;
+                let inner = input.parse::<Type>()?;
+                input.parse::<Token![>]>()?;
+
+                match name.as_str() {
+                    "Vec" => Self::Vec(inner),
+                    "Box" => Self::Box(inner),
+                    "Option" => Self::Option(inner),
+                    _ => unreachable!(),
+                }
+            }
+            _ => Self::Alone(input.parse::<Type>()?),
+        })
+    }
+}
+
+impl ToTokens for StructuralType {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        tokens.extend(match self {
+            StructuralType::Alone(t) => quote! { #t },
+            StructuralType::Vec(t) => quote! { Vec<#t> },
+            StructuralType::Box(t) => quote! { Box<#t> },
+            StructuralType::Option(t) => quote! { Option<#t> },
+        });
     }
 }
 
@@ -125,7 +283,7 @@ struct StructuralField {
     arrow: Token![->],
     field_name: Ident,
     field_colon: Token![:],
-    field_type: Type,
+    field_type: StructuralType,
     inner: Option<Definition>,
 }
 
@@ -221,29 +379,6 @@ impl Parse for PackedField {
             reinterp_type,
         })
     }
-}
-
-/// Extracts `T` out of `Vec<T>` token
-fn extract_vec_type(ty: &Type) -> Option<&Type> {
-    // I kinda hate this
-    Some(ty)
-        .and_then(|ty| match ty {
-            Type::Path(tp) => Some(tp),
-            _ => None,
-        })
-        .filter(|tp| tp.path.segments.len() == 1)
-        .map(|tp| tp.path.segments.first().unwrap())
-        .filter(|seg| seg.ident.to_string() == "Vec")
-        .and_then(|seg| match &seg.arguments {
-            PathArguments::AngleBracketed(ab) => Some(ab),
-            _ => None,
-        })
-        .filter(|ab| ab.args.len() == 1)
-        .map(|ab| ab.args.first().unwrap())
-        .and_then(|ga| match ga {
-            syn::GenericArgument::Type(ty) => Some(ty),
-            _ => None,
-        })
 }
 
 fn type_as_ident(ty: &Type) -> Option<&Ident> {

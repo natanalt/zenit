@@ -400,7 +400,7 @@ dependencies = [
  "anyhow",
  "thiserror",
  "zenit_lua",
- "zenit_lvl",
+ "zenit_lvl_core",
  "zenit_proc",
  "zenit_utils",
 ]
@@ -421,6 +421,18 @@ dependencies = [
 
 [[package]]
 name = "zenit_lvl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "thiserror",
+ "zenit_lvl_core",
+ "zenit_proc",
+ "zenit_utils",
+]
+
+[[package]]
+name = "zenit_lvl_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -58,7 +58,7 @@ impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
     /// Example:
     /// ```
     /// use std::io;
-    /// use zenit_lvl::node::{NodeName, NodeBuilder};
+    /// use zenit_lvl_core::node::{NodeName, NodeBuilder};
     /// use zenit_utils::AnyResult;
     /// 
     /// fn main() -> AnyResult {

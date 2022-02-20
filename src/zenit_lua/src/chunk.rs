@@ -22,7 +22,8 @@
 // i despise C
 
 use super::{ffi, LuaState};
-use zenit_utils::{error_if, AnyResult};
+use anyhow::ensure;
+use zenit_utils::AnyResult;
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CStr,
@@ -122,7 +123,7 @@ unsafe fn read_function(
     reader: &mut Cursor<&[u8]>,
 ) -> AnyResult<*mut ffi::Proto> {
     let proto = ffi::luaF_newproto(l.raw());
-    error_if!(proto.is_null(), ParseError::LuaApiError);
+    ensure!(!proto.is_null(), ParseError::LuaApiError);
 
     // Load header
     (*proto).source = read_lua_string(l, reader)?;

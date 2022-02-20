@@ -7,6 +7,8 @@ pub mod reader;
 
 pub use builder::NodeBuilder;
 pub use name::NodeName;
+pub use parser::NodeParser;
+pub use reader::NodeReadExt;
 
 /// Represents a node in a level file.
 #[derive(Debug, Clone)]

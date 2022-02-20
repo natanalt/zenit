@@ -1,8 +1,8 @@
 [package]
-name = "zenit_lvl"
+name = "zenit_lvl_core"
 version = "0.1.0"
 edition = "2021"
-description = "SWBF2 level file reader and writer"
+description = "SWBF2 level file reader and writer core"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
@@ -11,4 +11,3 @@ thiserror = "1.0.30"
 byteorder = "1.4.3"
 zenit_proc = { path = "../zenit_proc", version = "*" }
 zenit_utils = { path = "../zenit_utils", version = "*" }
-zenit_lvl_core = { path = "../zenit_lvl_core", version = "*" }

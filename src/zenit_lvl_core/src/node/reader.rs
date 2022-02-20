@@ -11,14 +11,14 @@ where
 {
     /// Parses a node. It only resolves the name and length, and doesn't attempt to parse children
     /// nodes, see `read_children` for that.
-    fn read_header<Reader: Read + Seek>(r: &mut Reader) -> Result<Self, ReadError>;
+    fn parse_header<Reader: Read + Seek>(r: &mut Reader) -> Result<Self, ReadError>;
 
     /// Reads the raw payload data from the node. Doesn't include the header.
-    fn read_raw_data<R: Read + Seek>(&mut self, r: &mut R) -> io::Result<Vec<u8>>;
+    fn parse_raw_data<Reader: Read + Seek>(&mut self, r: &mut Reader) -> io::Result<Vec<u8>>;
 
     /// Interprets this node as a parent node and returns a list of children, or None if no hierarchy
     /// is recognized.
-    fn read_children<Reader: Read + Seek>(
+    fn parse_children<Reader: Read + Seek>(
         &self,
         r: &mut Reader,
     ) -> io::Result<Option<Vec<LevelNode>>>;
@@ -33,7 +33,7 @@ pub enum ReadError {
 }
 
 impl NodeReadExt for LevelNode {
-    fn read_header<Reader: Read + Seek>(r: &mut Reader) -> Result<Self, ReadError> {
+    fn parse_header<Reader: Read + Seek>(r: &mut Reader) -> Result<Self, ReadError> {
         let name = NodeName::from(r.read_u32::<LE>()?);
         if name.0[0] == 0 {
             return Err(ReadError::InvalidNode);
@@ -60,14 +60,14 @@ impl NodeReadExt for LevelNode {
         })
     }
 
-    fn read_raw_data<R: Read + Seek>(&mut self, r: &mut R) -> io::Result<Vec<u8>> {
+    fn parse_raw_data<R: Read + Seek>(&mut self, r: &mut R) -> io::Result<Vec<u8>> {
         r.seek(SeekFrom::Start(self.payload_offset))?;
         let mut buffer = vec![0; self.payload_size as usize];
         r.read_exact(&mut buffer)?;
         Ok(buffer)
     }
 
-    fn read_children<Reader: Read + Seek>(
+    fn parse_children<Reader: Read + Seek>(
         &self,
         r: &mut Reader,
     ) -> io::Result<Option<Vec<LevelNode>>> {
