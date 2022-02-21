@@ -1,6 +1,6 @@
 use anyhow::bail;
 use byteorder::{ReadBytesExt, LE};
-use std::{io::Read, ffi::CString};
+use std::{ffi::CString, io::Read};
 
 use crate::AnyResult;
 
@@ -29,6 +29,7 @@ macro_rules! impl_parser {
     }
 }
 
+impl_parser!((), _r, ());
 impl_parser!(u8, r, r.read_u8()?);
 impl_parser!(i8, r, r.read_i8()?);
 impl_parser!(u16, r, r.read_u16::<LE>()?);

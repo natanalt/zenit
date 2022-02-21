@@ -1,5 +1,13 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
+/// Convenience macro for creating [`NodeName`] instances using the [`NodeName::from_str`] function
+#[macro_export]
+macro_rules! node {
+    ($s:expr) => {
+        NodeName::from_str($s)
+    };
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeName(pub [u8; 4]);
 

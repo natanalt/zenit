@@ -54,13 +54,13 @@ impl<'w, W: Write + Seek> NodeBuilder<'w, W> {
     }
 
     /// Closure-based node builder
-    /// 
+    ///
     /// Example:
     /// ```
     /// use std::io;
     /// use zenit_lvl_core::node::{NodeName, NodeBuilder};
     /// use zenit_utils::AnyResult;
-    /// 
+    ///
     /// fn main() -> AnyResult {
     ///     let mut out = io::Cursor::new(vec![]); // usually this is a file or smth lol
     ///     let len = NodeBuilder::begin(&mut out, NodeName::root())?

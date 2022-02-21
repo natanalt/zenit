@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use zenit_proc::ext_repr;
+use zenit_proc::{ext_repr, NodeParser, PackedParser};
 
 pub use zenit_lvl_core::*;
 
@@ -14,36 +14,64 @@ pub enum TextureKind {
     A,
 }
 
-zenit_proc::define_node_type! {
-    "ucfb" as LevelData {
-        "scr_" -> scripts: Vec<LevelScript> {
-            "NAME" -> name: CString,
-            "INFO" -> info: u8,
-            "BODY" -> data: Box<Vec::<u8>>,
-        }
 
-        "tex_" -> textures: Vec<LevelTexture> {
-            "NAME" -> name: CString,
-            "FMT_" -> formats: Vec<TextureFormat> {
-                "INFO" -> info: TextureInfo {
-                    format: FormatKind as u32,
-                    width: u16,
-                    height: u16,
-                    unknown: u16,
-                    mipmaps: u16,
-                    kind: TextureKind as u32,
-                }
-        
-                "FACE" -> faces: Vec<TextureFace> {
-                    "LVL_" -> mipmaps: Vec<TextureMipmap> {
-                        "INFO" -> info: MipmapInfo {
-                            level: u32,
-                            size: u32,
-                        },
-                        "BODY" -> data: Box<Vec::<u8>>,
-                    }
-                }
-            }
-        }
-    }
+#[derive(Debug, Clone, NodeParser)]
+pub struct LevelData {
+    #[nodes("scr_")]
+    pub scripts: Vec<LevelScript>,
+    #[nodes("tex_")]
+    pub textures: Vec<LevelTexture>,
 }
+
+#[derive(Debug, Clone, NodeParser)]
+pub struct LevelScript {
+    #[node("NAME")]
+    pub name: CString,
+    #[node("INFO")]
+    pub info: u8,
+    //#[node("BODY")]
+    //pub data: LazyData<u8>,
+}
+
+#[derive(Debug, Clone, NodeParser)]
+pub struct LevelTexture {
+    #[node("NAME")]
+    pub name: CString,
+    #[nodes("FMT_")]
+    pub formats: Vec<TextureFormat>,
+}
+
+#[derive(Debug, Clone, NodeParser)]
+pub struct TextureFormat {
+    #[node("INFO")]
+    pub info: TextureInfo,
+    #[nodes("FACE")]
+    pub faces: Vec<TextureFace>,
+}
+
+#[derive(Debug, Clone, NodeParser)]
+pub struct TextureFace {
+    #[nodes("LVL_")]
+    pub mipmaps: Vec<TextureMipmap>,
+}
+
+#[derive(Debug, Clone, NodeParser)]
+pub struct TextureMipmap {
+    //#[node("INFO")]
+    //pub info: MipmapInfo,
+    //#[node("BODY")]
+    //pub body: LazyData<u8>,
+}
+
+#[derive(Debug, Clone, PackedParser)]
+pub struct TextureInfo {
+    #[from(u32)]
+    pub format: FormatKind,
+    pub width: u16,
+    pub height: u16,
+    pub unknown: u16,
+    pub mipmaps: u16,
+    #[from(u32)]
+    pub kind: TextureKind,
+}
+

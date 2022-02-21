@@ -23,7 +23,6 @@
 
 use super::{ffi, LuaState};
 use anyhow::ensure;
-use zenit_utils::AnyResult;
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CStr,
@@ -32,6 +31,7 @@ use std::{
     ptr,
 };
 use thiserror::Error;
+use zenit_utils::AnyResult;
 
 #[rustfmt::skip]
 pub const EXPECTED_HEADER: [u8; 18] = [

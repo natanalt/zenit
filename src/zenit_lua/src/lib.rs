@@ -8,9 +8,9 @@
 //! which includes things like the internal Lua stack.
 //!
 
+use std::ffi::CStr;
 use thiserror::Error;
 use zenit_utils::AnyResult;
-use std::ffi::CStr;
 
 pub mod chunk;
 pub use chunk::load_chunk;

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-mod builder;
+pub mod builder;
 pub mod name;
 pub mod parser;
 pub mod reader;

@@ -24,7 +24,7 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
                     attribute
                         .path
                         .get_ident()
-                        .map(|i| i.to_string() == "reinterpret")
+                        .map(|i| i.to_string() == "from")
                         .unwrap_or(false)
                 })
                 .map_or(field_ty.clone(), |attribute| {

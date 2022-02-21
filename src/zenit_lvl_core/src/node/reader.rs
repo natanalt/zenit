@@ -107,7 +107,7 @@ fn read_children_list_inner<Reader: Read + Seek>(
             payload_size,
         });
     }
-    
+
     Ok(Some(result))
 }
 
