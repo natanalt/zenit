@@ -1,6 +1,6 @@
 use super::LevelNode;
 use std::{
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek},
     marker::PhantomData,
 };
 use zenit_utils::{packed::PackedParser, AnyResult};

@@ -8,6 +8,7 @@ pub mod read;
 pub use builder::NodeBuilder;
 pub use name::NodeName;
 pub use from::FromNode;
+pub use from::LazyData;
 
 /// Represents a node in a level file.
 #[derive(Debug, Clone)]
