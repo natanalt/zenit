@@ -1,0 +1,9 @@
+[book]
+title = "Zenit's Data Format Book"
+authors = ["Natalia Cholewa"]
+description = "Documentation for Battlefront 2's data formats"
+
+language = "en"
+multilingual = false
+
+src = "src"

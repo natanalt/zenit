@@ -31,13 +31,18 @@ I think that's all, you can also look at the automated workflows in the [.github
 The project is separated into multiple crates in the src directory:
  * **src/zenit_utils** - general utilities and shared code
  * **src/zenit_lua** - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
- * **src/zenit_lvl** - loader of BF2's level files, not dependent on anything besides utilities and proc macros
+ * **src/zenit_lvl** - loader of BF2's level files, can be used as a standalone library
  * **src/zenit_lvl_core** - simple core of the level file reader, without any game-specific definitoins
  * **src/zenit_proc** - engine-wide proc macros
  * **src/zenit** - the main engine and the core of Zenit's codebase
 
 Stuff that's not currently there but may be added in the future:
  * **src/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
+
+### Format reference book
+The directory **format_book/** contains [mdBook](https://github.com/rust-lang/mdBook)-based documentation for Battlefront II's file formats. It's better served there, than in random comments in the project. It's not yet automatically deployed online.
+
+If you have mdBook installed (`cargo install mdbook`) you can also run `mdbook serve` from the format book's directory, to host a local HTTP server with a pretty, viewable version of the documentation.
 
 ## License stuff
 No license attached here yet; I'll finally add it someday lol
