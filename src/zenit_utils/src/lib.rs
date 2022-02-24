@@ -4,6 +4,7 @@ pub mod fnv1a;
 pub mod packed;
 
 pub use fnv1a::fnv1a_hash;
+pub use fnv1a::FnvHashExt;
 
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 

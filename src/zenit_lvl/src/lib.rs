@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use zenit_proc::{ext_repr, NodeParser, PackedParser};
+use zenit_proc::{ext_repr, FromNode, PackedParser};
 
 pub use zenit_lvl_core::*;
 
@@ -14,8 +14,7 @@ pub enum TextureKind {
     A,
 }
 
-
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct LevelData {
     #[nodes("scr_")]
     pub scripts: Vec<LevelScript>,
@@ -23,7 +22,7 @@ pub struct LevelData {
     pub textures: Vec<LevelTexture>,
 }
 
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct LevelScript {
     #[node("NAME")]
     pub name: CString,
@@ -33,7 +32,7 @@ pub struct LevelScript {
     //pub data: LazyData<u8>,
 }
 
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct LevelTexture {
     #[node("NAME")]
     pub name: CString,
@@ -41,7 +40,7 @@ pub struct LevelTexture {
     pub formats: Vec<TextureFormat>,
 }
 
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct TextureFormat {
     #[node("INFO")]
     pub info: TextureInfo,
@@ -49,18 +48,18 @@ pub struct TextureFormat {
     pub faces: Vec<TextureFace>,
 }
 
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct TextureFace {
     #[nodes("LVL_")]
     pub mipmaps: Vec<TextureMipmap>,
 }
 
-#[derive(Debug, Clone, NodeParser)]
+#[derive(Debug, Clone, FromNode)]
 pub struct TextureMipmap {
     //#[node("INFO")]
-    //pub info: MipmapInfo,
-    //#[node("BODY")]
-    //pub body: LazyData<u8>,
+//pub info: MipmapInfo,
+//#[node("BODY")]
+//pub body: LazyData<u8>,
 }
 
 #[derive(Debug, Clone, PackedParser)]
@@ -74,4 +73,3 @@ pub struct TextureInfo {
     #[from(u32)]
     pub kind: TextureKind,
 }
-

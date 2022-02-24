@@ -2,13 +2,12 @@ use std::fmt::Debug;
 
 pub mod builder;
 pub mod name;
-pub mod parser;
-pub mod reader;
+pub mod from;
+pub mod read;
 
 pub use builder::NodeBuilder;
 pub use name::NodeName;
-pub use parser::NodeParser;
-pub use reader::NodeReadExt;
+pub use from::FromNode;
 
 /// Represents a node in a level file.
 #[derive(Debug, Clone)]

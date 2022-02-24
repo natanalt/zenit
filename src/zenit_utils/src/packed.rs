@@ -4,6 +4,8 @@ use std::{ffi::CString, io::Read};
 
 use crate::AnyResult;
 
+/// Special trait for reading packed data, always assumed to be little endian.
+/// Can be implemented using the [`zenit_proc::PackedParser`] derive macro.
 pub trait PackedParser
 where
     Self: Sized,

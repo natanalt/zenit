@@ -2,12 +2,12 @@
 name = "zenit_lvl_core"
 version = "0.1.0"
 edition = "2021"
-description = "SWBF2 level file reader and writer core"
+description = "SWBF2 level file reader and writer core. Doesn't include any game-specific definitions."
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
 anyhow = "1.0.52"
 thiserror = "1.0.30"
 byteorder = "1.4.3"
-zenit_proc = { path = "../zenit_proc", version = "*" }
-zenit_utils = { path = "../zenit_utils", version = "*" }
+zenit_proc = { path = "../zenit_proc" }
+zenit_utils = { path = "../zenit_utils" }

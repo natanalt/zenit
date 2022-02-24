@@ -30,13 +30,13 @@ pub fn node_parser_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
                         "` node"
                     ));
                 } else {
-                    #name = Some(NodeParser::parse_node(_child, r)?);
+                    #name = Some(FromNode::from_node(_child, r)?);
                 }
             } else
         },
         NodeField::Many(node_name, name, _) => quote! {
             if _child.name == node!(concat!(#node_name)) {
-                #name.push(NodeParser::parse_node(_child, r)?);
+                #name.push(FromNode::from_node(_child, r)?);
             } else
         },
     });
@@ -59,8 +59,8 @@ pub fn node_parser_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
     });
 
     Ok(quote! {
-        impl ::zenit_lvl_core::NodeParser for #name {
-            fn parse_node<R: ::std::io::Read + ::std::io::Seek>(
+        impl ::zenit_lvl_core::FromNode for #name {
+            fn from_node<R: ::std::io::Read + ::std::io::Seek>(
                 _raw: ::zenit_lvl_core::LevelNode,
                 r: &mut R
             ) -> ::anyhow::Result<Self> {

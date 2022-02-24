@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
 /// Convenience macro for creating [`NodeName`] instances using the [`NodeName::from_str`] function
+/// You **must** have `NodeName` imported.
 #[macro_export]
 macro_rules! node {
     ($s:expr) => {

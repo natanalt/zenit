@@ -161,11 +161,11 @@ impl Structural {
                         if #name.is_some() {
                             anyhow::bail!("duplicated node `{}`", #node_name);
                         }
-                        #name = Some(#t::parse_node(child, r)?.into());
+                        #name = Some(#t::from_node(child, r)?.into());
                     }
                 }
                 StructuralType::Vec(t) => quote! {
-                    #name.push(#t::parse_node(child, r)?);
+                    #name.push(#t::from_node(child, r)?);
                 },
             };
 
@@ -197,8 +197,8 @@ impl Structural {
         });
 
         quote! {
-            impl ::zenit_lvl_core::node::NodeParser for #name {
-                fn parse_node<R: std::io::Read + std::io::Seek>(
+            impl ::zenit_lvl_core::node::FromNode for #name {
+                fn from_node<R: std::io::Read + std::io::Seek>(
                     raw: ::zenit_lvl_core::node::LevelNode,
                     r: &mut R
                 ) -> zenit_utils::AnyResult<Self> {
