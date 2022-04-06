@@ -5,7 +5,7 @@ pub(crate) mod utils;
 
 mod m_define_node_type;
 mod m_ext_repr;
-mod m_node_parser;
+mod m_from_node;
 mod m_packed_parser;
 
 /// Implements the [`zenit_lvl::PackedParser`] trait on given type, if all of its fields also
@@ -53,9 +53,9 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 /// ```
 ///
 #[proc_macro_derive(FromNode, attributes(node, nodes))]
-pub fn node_parser_derive(input: TokenStream) -> TokenStream {
+pub fn from_node_derive(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
-    match m_node_parser::node_parser_derive(derive_input) {
+    match m_from_node::from_node_derive(derive_input) {
         Ok(ts) => ts.into(),
         Err(e) => e.to_compile_error().into(),
     }

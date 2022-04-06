@@ -13,5 +13,3 @@ zenit_lua = { path = "../zenit_lua" }
 zenit_utils = { path = "../zenit_utils" }
 anyhow = "1.0.52"
 thiserror = "1.0.30"
-bevy = { version = "0.6.1", features = ["dynamic"] }
-

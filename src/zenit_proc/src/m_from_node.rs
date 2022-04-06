@@ -2,7 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{spanned::Spanned, Attribute, DataStruct, DeriveInput, Field, Ident, LitStr, Type};
 
-pub fn node_parser_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
+pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
     let name = &input.ident;
     let data = match &input.data {
         syn::Data::Struct(s) => s,
@@ -69,11 +69,7 @@ pub fn node_parser_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
 
                 #(#variables)*
 
-                let _children = _raw
-                    .parse_children(r)?
-                    .ok_or(anyhow!(
-                        format!("expected child nodes in node `{:?}`", _raw.name.as_str())
-                    ))?;
+                let _children = _raw.parse_children(r)?;
 
                 for _child in _children {
                     #(#conditionals)* {

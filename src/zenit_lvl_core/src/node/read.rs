@@ -1,5 +1,5 @@
 use super::{LevelNode, NodeName};
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use byteorder::{ReadBytesExt, LE};
 use std::io::{self, Read, Seek, SeekFrom};
 use thiserror::Error;
@@ -66,28 +66,27 @@ impl LevelNode {
         Ok(r.take(self.payload_size as u64))
     }
 
-    /// Interprets this node as a parent node and returns a list of children, or None if no hierarchy
-    /// is recognized.
-    pub fn parse_children<Reader: Read + Seek>(
-        &self,
-        r: &mut Reader,
-    ) -> io::Result<Option<Vec<LevelNode>>> {
+    /// Interprets this node as a parent node and returns a list of children, or an error, possibly
+    /// an IO one
+    pub fn parse_children<Reader: Read + Seek>(&self, r: &mut Reader) -> AnyResult<Vec<LevelNode>> {
         if self.payload_size < 8 || self.payload_size == u32::MAX {
-            return Ok(None);
+            bail!("invalid node hierarchy");
         }
 
         // Attempt to parse:
         //  1. without any offsets
         //  2. with a single 4 byte offset (sometimes nodes encode their child counts there)
         self.seek_to(r)?;
-        Ok(read_children_list_inner(r, self.payload_size)?.map_or_else(
-            || {
-                self.seek_to(r)?;
-                r.seek(SeekFrom::Current(4))?;
-                io::Result::Ok(read_children_list_inner(r, self.payload_size - 4)?)
-            },
-            |v| Ok(Some(v)),
-        )?)
+        Ok(read_children_list_inner(r, self.payload_size)?
+            .map_or_else(
+                || {
+                    self.seek_to(r)?;
+                    r.seek(SeekFrom::Current(4))?;
+                    io::Result::Ok(read_children_list_inner(r, self.payload_size - 4)?)
+                },
+                |v| Ok(Some(v)),
+            )?
+            .ok_or(anyhow!("invalid node hierarchy"))?)
     }
 
     /// Creates a child iterator. If the node payload doesn't contain valid child nodes, an error
@@ -96,10 +95,7 @@ impl LevelNode {
         &self,
         r: &mut Reader,
     ) -> AnyResult<impl Iterator<Item = LevelNode>> {
-        Ok(self
-            .parse_children(r)?
-            .ok_or(anyhow!("the node doesn't contain valid children"))?
-            .into_iter())
+        Ok(self.parse_children(r)?.into_iter())
     }
 }
 

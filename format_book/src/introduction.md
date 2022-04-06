@@ -1,4 +1,4 @@
 # Welcome!
-Welcome to the Data Format Book. This place will serve as a core of developer documentation of Zenit, talking about internals of BF2.
+Welcome to the Data Format Book. This place will serve as a core of Zenit's developer documentation, mainly talking about internals of BF2.
 
-Right now there's nothing here, unfortunately. Content will arrive at some point!
+Unfortunately, there isn't much here right now. Content will arrive at some point!
