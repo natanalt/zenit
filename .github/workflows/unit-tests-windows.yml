@@ -44,10 +44,10 @@ jobs:
       - name: 🐲 Set LIBCLANG_PATH
         run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
 
-      - name: 🦀 Install Rust components
-        run: |
-          cargo install -f cargo-binutils
-          rustup component add llvm-tools-preview
+      #- name: 🦀 Install Rust components
+      #  run: |
+      #    cargo install -f cargo-binutils
+      #    rustup component add llvm-tools-preview
 
       - name: 🏗️ Build
         run: cargo build

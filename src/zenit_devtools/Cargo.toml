@@ -1,0 +1,9 @@
+[package]
+name = "zenit_devtools"
+version = "0.1.0"
+edition = "2021"
+description = "Zenit Engine developer tools"
+authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
+
+[dependencies]
+eframe = "0.17.0"

@@ -35,6 +35,7 @@ The project is separated into multiple crates in the src directory:
  * **src/zenit_lvl_core** - simple core of the level file reader, without any game-specific definitoins
  * **src/zenit_proc** - engine-wide proc macros
  * **src/zenit** - the main engine and the core of Zenit's codebase
+ * **src/zenit_devtools** - developer and debug tools for Zenit
 
 Stuff that's not currently there but may be added in the future:
  * **src/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
