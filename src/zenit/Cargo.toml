@@ -11,5 +11,10 @@ zenit_lvl = { path = "../zenit_lvl" }
 zenit_proc = { path = "../zenit_proc" }
 zenit_lua = { path = "../zenit_lua" }
 zenit_utils = { path = "../zenit_utils" }
+bevy_ecs = "0.7.0"
 anyhow = "1.0.52"
 thiserror = "1.0.30"
+log = "0.4.16"
+pretty_env_logger = "0.4.0"
+winit = "0.26.1"
+wgpu = "0.12.0"
