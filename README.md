@@ -1,5 +1,5 @@
 # 🚀 Zenit Engine
-[![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml) [![Unit tests (Linux)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-linux.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-linux.yml)
+[![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
 
 Zenit is a project attempting to create an open-source engine compatible with data files of PC version of *Star Wars Battlefront II (2005)*.
 
