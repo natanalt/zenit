@@ -7,6 +7,9 @@
 //! about Lua programming, and how C, or in this case Rust code interfaces with the Lua environment,
 //! which includes things like the internal Lua stack.
 //!
+//! TODO: write a custom implementation of the Lua 5 VM
+//!       It'll integrate better, and probably won't be too hard; we don't need a Lua source
+//!       parser, so it's even easier like that.
 
 use std::ffi::CStr;
 use thiserror::Error;

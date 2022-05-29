@@ -2,6 +2,8 @@ use bevy_ecs::prelude::*;
 use log::*;
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
+pub mod crash;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(StageLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,11 +19,14 @@ pub fn main() -> ! {
         .init();
 
     info!("Welcome to Zenit Engine {}", VERSION);
+    
+    crash::set_panic_hook();
+    panic!("nyaaaaa");
 
     let mut world = World::default();
     let mut schedule = Schedule::default();
     schedule.add_stage(EngineStage::Update, SystemStage::parallel().with_system(|| {
-        info!("o w o");
+        //info!("o w o");
     }));
 
     let event_loop = EventLoop::new();

@@ -1,4 +1,3 @@
 [workspace]
 members = ["src/*"]
-default-members = ["src/zenit", "src/zenit_devtools"]
 resolver = "2"

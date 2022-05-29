@@ -1,11 +1,12 @@
 [package]
-name = "zenit_utils"
+name = "zenit_render"
 version = "0.1.0"
 edition = "2021"
-description = "General purpose utilities and shared code of Zenit"
+description = "Custom Vulkan based renderer for Zenit"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
 anyhow = "1.0.57"
 thiserror = "1.0.31"
 byteorder = "1.4.3"
+vulkano = "0.29.0"

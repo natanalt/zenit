@@ -1,0 +1,5 @@
+
+#define RT_MANIFEST 24
+1 RT_MANIFEST "zenit.exe.manifest"
+
+150 BITMAP "..\\..\\..\\assets\\logo-128.bmp"

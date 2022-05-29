@@ -8,24 +8,12 @@ Unlike the impressive [Phoenix](https://github.com/LibSWBF2/SWBF2Phoenix) projec
 It's still super early in its life and you can't even start it yet. Work is underway to make it at least load to menu, though. lol
 
 ## Building
-To build Zenit you need a nightly build of Rust (`rustup toolchain add nightly`).
+To build Zenit you need Rust and a C compiler compatible with the toolchain (used to compile Lua). Just run `cargo build`. It should work on Windows and Linux without issues.
 
-**On Windows:**
- * you need Visual C++ for building Lua
- * you also need `cargo-binutils` and `llvm-tools-preview`:
-   ```sh
-   $ cargo install -f cargo-binutils
-   $ rustup component add llvm-tools-preview
-   ```
+You can also look at automated unit test workflows in the [.github/workflows](.github/workflows) directory. Note, that I actively work on Windows as of now, so Linux builds are completely untested.
 
-**On Linux:**
- * you need Clang for its linker
- * it may also be used as the compiler, but I'm not sure if Rust won't hook into GCC for that, lol
-
-**On macOS:**
- * LLD doesn't work, so you need zld: `brew install michaeleisel/zld/zld`
-
-I think that's all, you can also look at the automated workflows in the [.github/workflows](.github/workflows) directory. Note, that I actively work on Windows as of now, so Linux and *especially* macOS builds are completely untested.
+### macOS support
+Zenit should be compatible with macOS, but not in its current form. Since the renderer is using Vulkan, additional setup will be required, to integrate a compatibility library like MoltenVK. Unfortunately I don't own a Mac at the moment, so I can't really do that.
 
 ## Internal project structure
 The project is separated into multiple crates in the src directory:
@@ -34,8 +22,8 @@ The project is separated into multiple crates in the src directory:
  * **src/zenit_lvl** - loader of BF2's level files, can be used as a standalone library
  * **src/zenit_lvl_core** - simple core of the level file reader, without any game-specific definitoins
  * **src/zenit_proc** - engine-wide proc macros
+ * **src/zenit_render** - custom renderer engine for Zenit
  * **src/zenit** - the main engine and the core of Zenit's codebase
- * **src/zenit_devtools** - developer and debug tools for Zenit
 
 Stuff that's not currently there but may be added in the future:
  * **src/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
