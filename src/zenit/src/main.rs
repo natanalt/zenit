@@ -11,6 +11,9 @@ pub fn main() -> ! {
         .format_indent(None)
         .format_timestamp(None)
         .filter_level(LevelFilter::Trace)
+        .filter_module("wgpu_hal", LevelFilter::Off)
+        .filter_module("wgpu_core", LevelFilter::Error)
+        .filter_module("naga", LevelFilter::Off)
         .init();
 
     info!("Welcome to Zenit Engine {}", VERSION);
@@ -22,9 +25,22 @@ pub fn main() -> ! {
         .with_title("Zenit Engine")
         .with_inner_size(LogicalSize::new(1024, 768))
         .build(&event_loop)
-        .expect("Couldn't create main window");
+        .expect("Couldn't create main window")
+        .into();
 
-    let mut renderer = zenit_render::Renderer::new(window);
+    let mut renderer = zenit_render::Renderer::new(window).unwrap();
+    renderer.screens.push(zenit_render::base::screen::Screen {
+        label: Some("dab".into()),
+        target: renderer.main_window.clone(),
+        layers: vec![Box::new(
+            zenit_render::example::TriangleLayer::new(
+                &renderer.context,
+                renderer.main_window.surface_format,
+            )
+            .unwrap(),
+        )],
+    });
+
     //let main_window = renderer.context.main_window.clone();
     //renderer.add_screen(zenit_render::rcore::screen::Screen::new(&renderer.context, main_window).into());
     info!("Renderer is up and running");
@@ -43,8 +59,7 @@ pub fn main() -> ! {
             }
         }
         Event::MainEventsCleared => {
-            // TODO: move rendering to a background thread, untied from the event loop
-            renderer.render_frame();
+            renderer.render_frame().unwrap();
             *flow = ControlFlow::Poll;
         }
         _ => {}

@@ -77,6 +77,10 @@ impl ShaderSource {
         let mut nested_brackets = 0;
 
         for line in reader.lines().map(Result::unwrap) {
+            if line.starts_with("//") {
+                continue;
+            }
+
             let target = targets.get_mut(&state).unwrap();
 
             if state == State::Metadata {
@@ -144,9 +148,9 @@ impl<'t> CompilerInvocation<'t> {
     pub fn invoke(&self) -> io::Result<()> {
         let output = process::Command::new(&self.toolchain.unwrap().compiler)
             .arg("-O")
-            .arg("--target-env=opengl")
-            .arg("-std=320es")
             .arg("-Iassets/shaders")
+            .arg("-std=450core")
+            .arg("--target-env=vulkan")
             .args(&self.args)
             .output()?;
 

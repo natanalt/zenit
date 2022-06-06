@@ -9,7 +9,7 @@ pub use fnv1a::FnvHashExt;
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
 /// Shorthand for `Ok(())`, cause it looks ugly
-pub fn ok() -> AnyResult {
+pub fn ok<E>() -> Result<(), E> {
     Ok(())
 }
 
