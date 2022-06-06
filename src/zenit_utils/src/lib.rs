@@ -8,6 +8,11 @@ pub use fnv1a::FnvHashExt;
 
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
+/// Shorthand for `Ok(())`, cause it looks ugly
+pub fn ok() -> AnyResult {
+    Ok(())
+}
+
 /// Aligns the value. Alignment doesn't have to be a power of two.
 ///
 /// ```
@@ -44,4 +49,47 @@ pub const fn string_as_u32(s: &str) -> u32 {
 pub enum EnumParseError {
     #[error("invalid input")]
     InvalidInput,
+}
+
+/// https://users.rust-lang.org/t/can-i-conveniently-compile-bytes-into-a-rust-program-with-a-specific-alignment/24049/2
+#[macro_export]
+macro_rules! include_bytes_align_as {
+    ($align_ty:ty, $path:expr) => {{
+        #[repr(C)]
+        pub struct AlignedAs<Align, Bytes: ?Sized> {
+            pub _align: [Align; 0],
+            pub bytes: Bytes,
+        }
+
+        static ALIGNED: &AlignedAs::<$align_ty, [u8]> = &AlignedAs {
+            _align: [],
+            bytes: *include_bytes!($path),
+        };
+
+        &ALIGNED.bytes
+    }};
+}
+
+/// Includes a file into the program as a &'static slice of given type,
+/// with guaranteed proper alignments.
+#[macro_export]
+macro_rules! include_bytes_as {
+    ($target_ty:ty, $path:expr) => {{
+        let size = ::std::mem::size_of::<$target_ty>();
+        
+        let bytes = $crate::include_bytes_align_as!($target_ty, $path);
+        if bytes.len() % size != 0 {
+            // Ideally this should be a compile error
+            panic!("File doesn't evenly fit needed type");
+        }
+        
+        let result: &'static [$target_ty] = unsafe {
+            ::std::slice::from_raw_parts(
+                bytes.as_ptr() as *const u32,
+                bytes.len() / size,
+            )
+        };
+
+        result
+    }};
 }

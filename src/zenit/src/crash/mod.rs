@@ -17,15 +17,13 @@ pub fn generate_error_log(info: &PanicInfo) -> String {
         Local date: {}\n\
         Build type: {}\n\n\
         \
-        Panic reason: {}\n\
-        Location: {}\n\n\
+        {}\n\n\
         \
         TODO: better crash logs",
         crate::VERSION,
         chrono::Local::now(),
         is_debug_build().then(|| "Debug").unwrap_or("Release"),
-        info.payload().downcast_ref::<&str>().unwrap_or(&"?"),
-        info.location().map(ToString::to_string).unwrap_or("?".to_string()),
+        info.to_string(),
     )
 }
 

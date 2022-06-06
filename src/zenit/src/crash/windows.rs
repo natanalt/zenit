@@ -22,7 +22,7 @@ use winapi::{
 #[cfg(not(target_os = "windows"))]
 compile_error!("Windows crash handler can only be compiled for Windows targets");
 
-// TODO: make the window resizable
+// TODO: make the crash handler window resizable
 
 const CONFIG: HandlerConfig = HandlerConfig {
     window_title: "Zenit Crash Handler",
@@ -47,7 +47,7 @@ const CONFIG: HandlerConfig = HandlerConfig {
 
     initial_window_width: 500,
     initial_window_height: 500,
-    padding: 10,
+    padding: 12,
 
     header_height: 25,
     footer_height: 25,
@@ -61,6 +61,20 @@ struct Bounds {
     y: i32,
     w: i32,
     h: i32,
+}
+
+impl Bounds {
+    pub unsafe fn apply_to(&self, hwnd: HWND) {
+        SetWindowPos(
+            hwnd,
+            ptr::null_mut(),
+            self.x,
+            self.y,
+            self.w,
+            self.h,
+            0
+        );
+    }
 }
 
 /// Internal configuration, to make everything easier
@@ -122,7 +136,7 @@ impl HandlerConfig {
 
         y += padding / 2;
         let header = Bounds {
-            x: padding * 3 + self.logo_size,
+            x: padding * 2 + self.logo_size,
             y,
             w: width - logo.w - padding * 2,
             h: self.header_height,
@@ -147,22 +161,22 @@ impl HandlerConfig {
 
         y += logs.h + padding;
         let footer = Bounds {
-            x: padding + padding / 2,
+            x: padding,
             y,
             w: width,
             h: self.footer_height,
         };
 
         y += footer.h;
-        let copy = Bounds {
-            x: width - self.footer_button_width * 2 - padding,
+        let ok = Bounds {
+            x: full_width - padding - self.footer_button_width,
             y,
             w: self.footer_button_width,
             h: self.footer_button_height,
         };
 
-        let ok = Bounds {
-            x: copy.x + self.footer_button_width + padding,
+        let copy = Bounds {
+            x: ok.x - padding - self.footer_button_width,
             y,
             w: self.footer_button_width,
             h: self.footer_button_height,
@@ -380,69 +394,13 @@ pub fn set_panic_hook() {
             GetClientRect(window, &mut rect as _);
 
             let layout = CONFIG.compute_layout(rect.right - 1, rect.bottom - 1);
-            SetWindowPos(
-                logo,
-                ptr::null_mut(),
-                layout.logo.x,
-                layout.logo.y,
-                layout.logo.w,
-                layout.logo.h,
-                0,
-            );
-            SetWindowPos(
-                header,
-                ptr::null_mut(),
-                layout.header.x,
-                layout.header.y,
-                layout.header.w,
-                layout.header.h,
-                0,
-            );
-            SetWindowPos(
-                main,
-                ptr::null_mut(),
-                layout.main.x,
-                layout.main.y,
-                layout.main.w,
-                layout.main.h,
-                0,
-            );
-            SetWindowPos(
-                logs,
-                ptr::null_mut(),
-                layout.logs.x,
-                layout.logs.y,
-                layout.logs.w,
-                layout.logs.h,
-                0,
-            );
-            SetWindowPos(
-                footer,
-                ptr::null_mut(),
-                layout.footer.x,
-                layout.footer.y,
-                layout.footer.w,
-                layout.footer.h,
-                0,
-            );
-            SetWindowPos(
-                button_copy,
-                ptr::null_mut(),
-                layout.copy.x,
-                layout.copy.y,
-                layout.copy.w,
-                layout.copy.h,
-                0,
-            );
-            SetWindowPos(
-                button_ok,
-                ptr::null_mut(),
-                layout.ok.x,
-                layout.ok.y,
-                layout.ok.w,
-                layout.ok.h,
-                0,
-            );
+            layout.logo.apply_to(logo);
+            layout.header.apply_to(header);
+            layout.main.apply_to(main);
+            layout.logs.apply_to(logs);
+            layout.footer.apply_to(footer);
+            layout.copy.apply_to(button_copy);
+            layout.ok.apply_to(button_ok);
         };
         reset_layout();
 
@@ -468,6 +426,7 @@ pub fn set_panic_hook() {
             GetStockObject(DEFAULT_GUI_FONT as _) as _,
         );
         SendMessageW(header, WM_SETFONT, header_font as _, 1);
+        //SendMessageW(logs, WM_SETFONT, GetStockObject(ANSI_FIXED_FONT as _) as _, 1);
 
         let mut msg = mem::zeroed::<MSG>();
         ShowWindow(window, SW_NORMAL);

@@ -6,11 +6,6 @@ pub mod crash;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(StageLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EngineStage {
-    Update,
-}
-
 pub fn main() -> ! {
     pretty_env_logger::formatted_builder()
         .format_indent(None)
@@ -19,34 +14,38 @@ pub fn main() -> ! {
         .init();
 
     info!("Welcome to Zenit Engine {}", VERSION);
-    
-    crash::set_panic_hook();
-    panic!("nyaaaaa");
 
-    let mut world = World::default();
-    let mut schedule = Schedule::default();
-    schedule.add_stage(EngineStage::Update, SystemStage::parallel().with_system(|| {
-        //info!("o w o");
-    }));
+    crash::set_panic_hook();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Zenit Engine")
         .with_inner_size(LogicalSize::new(1024, 768))
         .build(&event_loop)
-        .expect("couldn't create main window");
+        .expect("Couldn't create main window");
+
+    let mut renderer = zenit_render::Renderer::new(window);
+    //let main_window = renderer.context.main_window.clone();
+    //renderer.add_screen(zenit_render::rcore::screen::Screen::new(&renderer.context, main_window).into());
+    info!("Renderer is up and running");
 
     event_loop.run(move |event, _, flow| match event {
         Event::NewEvents(_) => {}
-        Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
-            WindowEvent::CloseRequested => {
-                info!("Close requested");
-                *flow = ControlFlow::Exit;
+        Event::WindowEvent { window_id: _, event } =>
+            //if window_id == renderer.main_window_surface.window().id() =>
+        {
+            match event {
+                WindowEvent::CloseRequested => {
+                    info!("Close requested");
+                    *flow = ControlFlow::Exit;
+                }
+                _ => {}
             }
-            _ => {}
-        },
+        }
         Event::MainEventsCleared => {
-            schedule.run(&mut world);
+            // TODO: move rendering to a background thread, untied from the event loop
+            renderer.render_frame();
+            *flow = ControlFlow::Poll;
         }
         _ => {}
     });

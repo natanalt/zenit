@@ -1,19 +1,25 @@
 # 🚀 Zenit Engine
 [![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
 
-Zenit is a project attempting to create an open-source engine compatible with data files of PC version of *Star Wars Battlefront II (2005)*.
+Zenit is a project attempting to create an open-source engine compatible with the PC version of *Star Wars Battlefront II (2005)*.
 
 Unlike the impressive [Phoenix](https://github.com/LibSWBF2/SWBF2Phoenix) project, Zenit tries to stay more faithful to the original game's look and feel, while also being fully portable. This doesn't mean that it'll never allow any graphical fireworks, but its priority is to at the very least look like the original. Zenit and and all of its dependencies are also open-source, if that's your thing (even if it does lose on graphical goodies of Unity, which are used in Phoenix).
 
 It's still super early in its life and you can't even start it yet. Work is underway to make it at least load to menu, though. lol
 
 ## Building
-To build Zenit you need Rust and a C compiler compatible with the toolchain (used to compile Lua). Just run `cargo build`. It should work on Windows and Linux without issues.
+Requirements:
+ * Recent version of the [Rust toolchain](https://rust-lang.org)
+ * `glslc` and `spirv-link`
+    * the build scripts look for them either in your PATH or in `$VULKAN_SDK/bin`
+ * Patience
 
-You can also look at automated unit test workflows in the [.github/workflows](.github/workflows) directory. Note, that I actively work on Windows as of now, so Linux builds are completely untested.
+The usual workflow is:
+ * `cargo build` to build the project
+ * `cargo run` to run it (use `cargo run -- parameters` to pass command line arguments)
+ * `cargo build --bin crate_name` to only build a single crate
 
-### macOS support
-Zenit should be compatible with macOS, but not in its current form. Since the renderer is using Vulkan, additional setup will be required, to integrate a compatibility library like MoltenVK. Unfortunately I don't own a Mac at the moment, so I can't really do that.
+You can also look at automated unit test workflows in the [*.github/workflows*](.github/workflows) directory.
 
 ## Internal project structure
 The project is separated into multiple crates in the src directory:
