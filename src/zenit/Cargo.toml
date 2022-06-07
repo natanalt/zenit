@@ -12,7 +12,6 @@ zenit_proc = { path = "../zenit_proc" }
 zenit_lua = { path = "../zenit_lua" }
 zenit_utils = { path = "../zenit_utils" }
 zenit_render = { path = "../zenit_render" }
-bevy_ecs = "0.7.0"
 anyhow = "1.0.57"
 thiserror = "1.0.31"
 log = "0.4.16"

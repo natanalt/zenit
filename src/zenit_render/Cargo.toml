@@ -15,6 +15,10 @@ winit = "0.26.1"
 wgpu = { version = "0.12.0", features = ["spirv"] }
 pollster = "0.2.5"
 toml = "0.5.9"
+log = "0.4.17"
+
+egui = "0.18.1"
+egui-wgpu = "0.18.0"
 
 # Explicitly importing a newer version with alloc crate, as it allows to pass
 # Arc<Window> as a valid window handle, instead of requiring ownership or

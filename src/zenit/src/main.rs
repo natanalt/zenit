@@ -1,4 +1,3 @@
-use bevy_ecs::prelude::*;
 use log::*;
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 

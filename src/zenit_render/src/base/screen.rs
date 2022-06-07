@@ -4,7 +4,7 @@ use std::{borrow::Cow, sync::Arc};
 pub struct Screen {
     pub label: Option<Cow<'static, str>>,
     pub target: Arc<dyn RenderTarget>,
-    pub layers: Vec<Box<dyn RenderLayer>>,
+    pub layers: Vec<Arc<dyn RenderLayer>>,
 }
 
 pub trait RenderLayer: Send + Sync {

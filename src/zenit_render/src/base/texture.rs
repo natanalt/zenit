@@ -25,4 +25,8 @@ impl RenderTarget for Texture2D {
     fn get_size(&self) -> IVec2 {
         self.size
     }
+
+    fn get_format(&self) -> wgpu::TextureFormat {
+        self.format
+    }
 }

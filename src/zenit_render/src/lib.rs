@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail};
 use base::{context::RenderContext, screen::Screen, swapchain::SwapchainTexture};
+use log::*;
 use pollster::FutureExt;
 use std::sync::Arc;
 use winit::window::Window;
@@ -7,6 +8,7 @@ use zenit_utils::{ok, AnyResult};
 
 pub mod base;
 pub mod example;
+pub mod layers;
 
 pub struct Renderer {
     pub context: Arc<RenderContext>,
@@ -82,7 +84,9 @@ impl Renderer {
                 wgpu::SurfaceError::OutOfMemory => Err(err)?,
 
                 // Ignore?
-                wgpu::SurfaceError::Timeout | wgpu::SurfaceError::Outdated => {}
+                wgpu::SurfaceError::Timeout | wgpu::SurfaceError::Outdated => {
+                    warn!("Main window swapchain timed out or is outdated");
+                }
             }
 
             // Retry again next frame
@@ -96,7 +100,7 @@ impl Renderer {
             }
 
             for layer in &screen.layers {
-                buffers.extend(layer.render(&self.context, screen.target.as_ref()));
+                buffers.extend(layer.render( &self.context, screen.target.as_ref()));
             }
         }
 

@@ -1,7 +1,6 @@
 use super::target::RenderTarget;
 use glam::IVec2;
 use std::sync::{Arc, RwLock};
-use zenit_utils::{ok, AnyResult};
 
 pub struct SwapchainTexture {
     pub surface: wgpu::Surface,
@@ -48,7 +47,7 @@ impl SwapchainTexture {
             view: Arc::new(view),
         });
 
-        ok()
+        Ok(())
     }
 
     pub fn present(&self) {
@@ -71,4 +70,8 @@ impl RenderTarget for SwapchainTexture {
         let config = self.surface_config.read().unwrap();
         IVec2::new(config.width as i32, config.height as i32)
     }
+
+    fn get_format(&self) -> wgpu::TextureFormat {
+        self.surface_format
+    }    
 }

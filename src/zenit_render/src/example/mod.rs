@@ -1,4 +1,4 @@
-use crate::base::{context::RenderContext, screen::RenderLayer, target::RenderTarget};
+use crate::base::{context::RenderContext, screen::RenderLayer, target::RenderTarget, utils};
 use byteorder::{NativeEndian, WriteBytesExt};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
@@ -43,22 +43,10 @@ impl TriangleLayer {
                 vertex: wgpu::VertexState {
                     module: &shader.module,
                     entry_point: "main",
-                    buffers: &[wgpu::VertexBufferLayout {
-                        array_stride: 6 * 4,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &[
-                            wgpu::VertexAttribute {
-                                format: wgpu::VertexFormat::Float32x2,
-                                offset: 0 * 4,
-                                shader_location: 0,
-                            },
-                            wgpu::VertexAttribute {
-                                format: wgpu::VertexFormat::Float32x4,
-                                offset: 2 * 4,
-                                shader_location: 1,
-                            },
-                        ],
-                    }],
+                    buffers: &[crate::single_vertex_buffer![
+                        0 => Float32x2,
+                        1 => Float32x4,
+                    ]],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader.module,
@@ -69,15 +57,7 @@ impl TriangleLayer {
                         write_mask: wgpu::ColorWrites::ALL,
                     }],
                 }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Cw,
-                    cull_mode: None,
-                    unclipped_depth: false,
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    conservative: false,
-                },
+                primitive: utils::USUAL_PRIMITIVES,
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState::default(),
                 multiview: None,
