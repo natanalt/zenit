@@ -1,9 +1,12 @@
-use crate::base::{context::RenderContext, screen::RenderLayer, target::RenderTarget, utils};
+use crate::render::base::{
+    context::RenderContext, screen::RenderLayer, target::RenderTarget, utils,
+};
 use byteorder::{NativeEndian, WriteBytesExt};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use zenit_utils::AnyResult;
 
+/// Example [`RenderLayer`] that renders a triangle
 pub struct TriangleLayer {
     pipeline: wgpu::RenderPipeline,
     vertices: wgpu::Buffer,

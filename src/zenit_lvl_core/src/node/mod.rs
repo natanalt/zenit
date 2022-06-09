@@ -1,14 +1,14 @@
 use std::fmt::Debug;
 
 pub mod builder;
-pub mod name;
 pub mod from;
+pub mod name;
 pub mod read;
 
 pub use builder::NodeBuilder;
-pub use name::NodeName;
 pub use from::FromNode;
 pub use from::LazyData;
+pub use name::NodeName;
 
 /// Represents a node in a level file.
 #[derive(Debug, Clone)]

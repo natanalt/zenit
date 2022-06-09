@@ -1,10 +1,13 @@
 name: Unit tests (Windows)
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+# Tests disabled until I can be arsed to add glslc and spirv-link into the
+# build environment.
+
+#on:
+#  push:
+#    branches: [ main ]
+#  pull_request:
+#    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always

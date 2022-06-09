@@ -1,7 +1,10 @@
 # 🚀 Zenit Engine
-[![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
+<!--
+Unit tests need modification to work again, see unit-tests-windows.yml
 
-Zenit is a project attempting to create an open-source engine compatible with the PC version of *Star Wars Battlefront II (2005)*.
+[![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
+-->
+**Zenit** is a project attempting to create an open-source engine compatible with the PC version of *Star Wars Battlefront II (2005)*.
 
 Unlike the impressive [Phoenix](https://github.com/LibSWBF2/SWBF2Phoenix) project, Zenit tries to stay more faithful to the original game's look and feel, while also being fully portable. This doesn't mean that it'll never allow any graphical fireworks, but its priority is to at the very least look like the original. Zenit and and all of its dependencies are also open-source, if that's your thing (even if it does lose on graphical goodies of Unity, which are used in Phoenix).
 
@@ -28,7 +31,6 @@ The project is separated into multiple crates in the src directory:
  * **src/zenit_lvl** - loader of BF2's level files, can be used as a standalone library
  * **src/zenit_lvl_core** - simple core of the level file reader, without any game-specific definitoins
  * **src/zenit_proc** - engine-wide proc macros
- * **src/zenit_render** - custom renderer engine for Zenit
  * **src/zenit** - the main engine and the core of Zenit's codebase
 
 Stuff that's not currently there but may be added in the future:

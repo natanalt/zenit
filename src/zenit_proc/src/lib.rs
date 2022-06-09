@@ -10,7 +10,7 @@ mod m_packed_parser;
 
 /// Implements the [`zenit_lvl::PackedParser`] trait on given type, if all of its fields also
 /// implement it.
-/// 
+///
 /// If a field is marked with the `#[from(T)]` attribute, it'll be read as `T` (`T` must implement
 /// PackedParser as well), and then converted into the field's type using its `From<T>`
 /// implementation.
@@ -63,13 +63,13 @@ pub fn from_node_derive(input: TokenStream) -> TokenStream {
 
 /// Extended `#[repr(T)]` macro, additionally creating [`Into<T>`] and [`TryFrom<T>`]
 /// implementations, which should be present in Rust by default, but for some reason aren't.
-/// 
+///
 /// **Important:** this macro assumes that `zenit_utils` is available.
-/// 
+///
 /// ## Example
 /// ```ignore
 /// use zenit_proc::ext_repr;
-/// 
+///
 /// // Actual structure used by Zenit is a bit larger
 /// #[ext_repr(u32)]
 /// #[derive(Debug)]
@@ -78,11 +78,11 @@ pub fn from_node_derive(input: TokenStream) -> TokenStream {
 ///     R5G6B5 = 0x17,
 ///     A8 = 0x1c,
 /// }
-/// 
+///
 /// assert_eq!(TextureFormat::try_from(0x17u32), Ok(TextureFormat::R5G6B5));
 /// assert_eq!(TextureFormat::A8.into(), 0x1c as u32);
 /// ```
-/// 
+///
 #[proc_macro_attribute]
 pub fn ext_repr(input: TokenStream, source_item: TokenStream) -> TokenStream {
     m_ext_repr::ext_repr(input, source_item)

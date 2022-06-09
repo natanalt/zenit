@@ -1,5 +1,12 @@
-use std::{path::{PathBuf, Path}, env, io::{self, BufReader, BufRead}, fs::{File, self}, collections::HashMap, ffi::OsString, process};
 use derive_builder::Builder;
+use std::{
+    collections::HashMap,
+    env,
+    fs::{self, File},
+    io::{self, BufRead, BufReader},
+    path::{Path, PathBuf},
+    process,
+};
 use which::which;
 
 pub struct GlslToolchain {
@@ -44,12 +51,12 @@ impl ShaderSource {
     /// .shader file reader with numerous limitations
     pub fn parse(file: &Path) -> io::Result<Self> {
         let reader = BufReader::new(File::open(file)?);
-        
+
         let mut metadata = String::new();
         let mut shared = String::new();
         let mut vertex = String::new();
         let mut fragment = String::new();
-        
+
         #[derive(PartialEq, Eq, Hash, Clone, Copy)]
         enum State {
             Metadata,
@@ -132,7 +139,10 @@ pub struct CompilerInvocation<'t> {
 
 impl<'t> CompilerInvocation<'t> {
     pub fn builder() -> Self {
-        Self { toolchain: None, args: vec![] }
+        Self {
+            toolchain: None,
+            args: vec![],
+        }
     }
 
     pub fn toolchain(&mut self, toolchain: &'t GlslToolchain) -> &mut Self {
@@ -175,7 +185,10 @@ pub struct LinkerInvocation<'t> {
 
 impl<'t> LinkerInvocation<'t> {
     pub fn builder() -> Self {
-        Self { toolchain: None, args: vec![] }
+        Self {
+            toolchain: None,
+            args: vec![],
+        }
     }
 
     pub fn toolchain(&mut self, toolchain: &'t GlslToolchain) -> &mut Self {
@@ -213,7 +226,7 @@ pub struct ShaderCompilation<'t> {
     pub name: String,
     pub metadata: String,
     pub vertex_shader: String,
-    pub fragment_shader: String, 
+    pub fragment_shader: String,
 }
 
 impl<'t> ShaderCompilation<'t> {
@@ -242,7 +255,7 @@ impl<'t> ShaderCompilation<'t> {
             .arg("-o")
             .arg(path_vertex_spirv.to_str().unwrap())
             .invoke()?;
-        
+
         println!("  : Compiling fragment shader...");
         CompilerInvocation::builder()
             .toolchain(self.toolchain)
@@ -252,7 +265,7 @@ impl<'t> ShaderCompilation<'t> {
             .arg("-o")
             .arg(path_fragment_spirv.to_str().unwrap())
             .invoke()?;
-        
+
         println!("  : Linking...");
         LinkerInvocation::builder()
             .toolchain(self.toolchain)
@@ -275,40 +288,4 @@ fn write_out_file(path: impl AsRef<Path>, contents: &[u8]) -> io::Result<PathBuf
     let final_path = out_dir_path(path);
     fs::write(&final_path, contents)?;
     Ok(final_path)
-}
-
-fn main() -> io::Result<()> {
-    println!("cargo:rerun-if-changed=assets/shaders");
-
-    let toolchain = GlslToolchain::find();
-
-    for entry in fs::read_dir("assets/shaders")? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if !entry.file_type()?.is_file() {
-            continue;
-        }
-
-        if path.extension() != Some(&OsString::from("shader")) {
-            continue;
-        }
-
-        let name = path.file_name().unwrap().to_string_lossy();
-        println!("Compiling shader `{}`...", &name);
-
-        let source = ShaderSource::parse(&path)?;
-
-        ShaderCompilation::builder()
-            .toolchain(&toolchain)
-            .name(name.to_string())
-            .metadata(source.metadata)
-            .vertex_shader(format!("{}\n{}", source.shared, source.vertex))
-            .fragment_shader(format!("{}\n{}", source.shared, source.fragment))
-            .build()
-            .unwrap()
-            .invoke()?;
-    }
-
-    Ok(())
 }

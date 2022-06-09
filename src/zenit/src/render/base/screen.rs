@@ -7,7 +7,7 @@ pub struct Screen {
     pub layers: Vec<Arc<dyn RenderLayer>>,
 }
 
-pub trait RenderLayer: Send + Sync {
+pub trait RenderLayer {
     fn render(
         &self,
         context: &Arc<RenderContext>,

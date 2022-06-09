@@ -65,15 +65,7 @@ struct Bounds {
 
 impl Bounds {
     pub unsafe fn apply_to(&self, hwnd: HWND) {
-        SetWindowPos(
-            hwnd,
-            ptr::null_mut(),
-            self.x,
-            self.y,
-            self.w,
-            self.h,
-            0
-        );
+        SetWindowPos(hwnd, ptr::null_mut(), self.x, self.y, self.w, self.h, 0);
     }
 }
 

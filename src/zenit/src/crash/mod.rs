@@ -5,7 +5,7 @@ mod windows;
 
 /// Sets up the panic hook, if any is available for the current platform
 #[inline(always)]
-pub fn set_panic_hook() {
+pub fn enable_panic_handler() {
     #[cfg(target_os = "windows")]
     windows::set_panic_hook();
 }
@@ -22,15 +22,7 @@ pub fn generate_error_log(info: &PanicInfo) -> String {
         TODO: better crash logs",
         crate::VERSION,
         chrono::Local::now(),
-        is_debug_build().then(|| "Debug").unwrap_or("Release"),
+        cfg!(debug_assertions).then(|| "Debug").unwrap_or("Release"),
         info.to_string(),
     )
-}
-
-fn is_debug_build() -> bool {
-    if cfg!(debug_assertions) {
-        true
-    } else {
-        false
-    }
 }

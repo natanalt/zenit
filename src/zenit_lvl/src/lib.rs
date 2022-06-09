@@ -3,9 +3,9 @@ use script::LevelScript;
 use texture::LevelTexture;
 use zenit_proc::FromNode;
 
+pub mod optional;
 pub mod script;
 pub mod texture;
-pub mod optional;
 
 #[derive(Debug, Clone, FromNode)]
 pub struct LevelData {

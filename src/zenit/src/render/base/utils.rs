@@ -14,9 +14,9 @@ pub const USUAL_PRIMITIVES: wgpu::PrimitiveState = wgpu::PrimitiveState {
 
 /// Generates a [`wgpu::VertexBufferLayout`] that describes a vertex buffer
 /// made of a single, tightly packed buffer, with vertex step mode.
-/// 
+///
 /// Takes the same parameters as the [`wgpu::vertex_attr_array`] macro.
-/// 
+///
 /// ## Example
 /// ```rs
 /// // To be passed in vertex stage description while creating a pipeline

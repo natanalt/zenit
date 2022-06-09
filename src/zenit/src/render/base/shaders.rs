@@ -11,7 +11,7 @@ pub struct Shader {
 #[macro_export]
 macro_rules! include_shader {
     ($device:expr, $name:expr) => {
-        $crate::base::shaders::Shader {
+        $crate::render::base::shaders::Shader {
             metadata: ::toml::from_str(include_str!(concat!(env!("OUT_DIR"), "/", $name, ".toml")))
                 .unwrap(),
             module: ($device).create_shader_module(&::wgpu::include_spirv!(concat!(

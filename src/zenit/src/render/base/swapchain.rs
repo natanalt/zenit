@@ -59,6 +59,14 @@ impl SwapchainTexture {
             .frame
             .present();
     }
+
+    /// Reconfigures the surface using a specified size
+    pub fn reconfigure(&self, device: &wgpu::Device, new_size: IVec2) {
+        let mut sc = self.surface_config.write().unwrap();
+        sc.width = new_size.x as _;
+        sc.height = new_size.y as _;
+        self.surface.configure(device, &sc);
+    }
 }
 
 impl RenderTarget for SwapchainTexture {
@@ -73,5 +81,5 @@ impl RenderTarget for SwapchainTexture {
 
     fn get_format(&self) -> wgpu::TextureFormat {
         self.surface_format
-    }    
+    }
 }

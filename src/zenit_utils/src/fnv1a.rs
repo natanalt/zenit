@@ -29,11 +29,11 @@ pub fn fnv1a_hash(buffer: &[u8]) -> u32 {
 
 pub trait FnvHashExt {
     /// Verifies if given string's FNV-1a hash matches this value.
-    /// 
+    ///
     /// ## Example:
     /// ```
     /// use zenit_utils::FnvHashExt;
-    /// 
+    ///
     /// let hash: u32 = 0x266561d8;
     /// assert!(hash.fnv1a_matches("all_fly_snowspeeder"))
     /// ```

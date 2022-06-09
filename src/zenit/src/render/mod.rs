@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail};
 use base::{context::RenderContext, screen::Screen, swapchain::SwapchainTexture};
+use glam::IVec2;
 use log::*;
 use pollster::FutureExt;
 use std::sync::Arc;
@@ -7,7 +8,6 @@ use winit::window::Window;
 use zenit_utils::{ok, AnyResult};
 
 pub mod base;
-pub mod example;
 pub mod layers;
 
 pub struct Renderer {
@@ -81,11 +81,28 @@ impl Renderer {
                         .surface
                         .configure(&self.context.device, &config);
                 }
+
                 wgpu::SurfaceError::OutOfMemory => Err(err)?,
 
-                // Ignore?
-                wgpu::SurfaceError::Timeout | wgpu::SurfaceError::Outdated => {
-                    warn!("Main window swapchain timed out or is outdated");
+                wgpu::SurfaceError::Outdated => {
+                    let size = self.main_winit_window.inner_size();
+
+                    // On Windows, if the game window is minimized, the size
+                    // becomes (0, 0), which will promptly cause a crash if
+                    // a surface reconfiguration is requested.
+                    //
+                    // Therefore, only reconfigure the swapchain if the
+                    // dimensions are actually vlaid.
+                    if size.width != 0 && size.height != 0 {
+                        self.main_window.reconfigure(
+                            &self.context.device,
+                            IVec2::new(size.width as _, size.height as _),
+                        );
+                    }
+                }
+
+                wgpu::SurfaceError::Timeout => {
+                    warn!("Main window swapchain timed out");
                 }
             }
 
@@ -100,12 +117,23 @@ impl Renderer {
             }
 
             for layer in &screen.layers {
-                buffers.extend(layer.render( &self.context, screen.target.as_ref()));
+                buffers.extend(layer.render(&self.context, screen.target.as_ref()));
             }
         }
 
         self.context.queue.submit(buffers);
         self.main_window.present();
+
         ok()
+    }
+
+    pub fn find_screen(&self, label: &str) -> Option<&Screen> {
+        self.screens.iter().find(|screen| {
+            if let Some(screen_label) = &screen.label {
+                screen_label == label
+            } else {
+                false
+            }
+        })
     }
 }

@@ -1,9 +1,18 @@
+use crate::engine::{Engine, FrameInfo};
 use log::*;
+use std::{sync::Arc, time::Instant};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
+#[cfg(feature = "crash-handler")]
 pub mod crash;
 
+pub mod ctpanel;
+pub mod engine;
+pub mod render;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// TODO: move this game loop code somewhere lmao
 
 pub fn main() -> ! {
     pretty_env_logger::formatted_builder()
@@ -17,49 +26,76 @@ pub fn main() -> ! {
 
     info!("Welcome to Zenit Engine {}", VERSION);
 
-    crash::set_panic_hook();
+    #[cfg(feature = "crash-handler")]
+    crash::enable_panic_handler();
 
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("Zenit Engine")
-        .with_inner_size(LogicalSize::new(1024, 768))
-        .build(&event_loop)
-        .expect("Couldn't create main window")
-        .into();
+    let window = Arc::new(
+        WindowBuilder::new()
+            .with_title("Zenit Engine")
+            .with_inner_size(LogicalSize::new(1280i32, 720i32))
+            .build(&event_loop)
+            .expect("Couldn't create main window"),
+    );
 
-    let mut renderer = zenit_render::Renderer::new(window).unwrap();
-    renderer.screens.push(zenit_render::base::screen::Screen {
+    let mut renderer = render::Renderer::new(window.clone()).unwrap();
+
+    renderer.screens.push(render::base::screen::Screen {
         label: Some("dab".into()),
-        target: renderer.main_window.clone(),
-        layers: vec![Box::new(
-            zenit_render::example::TriangleLayer::new(
+        target: Arc::new(render::base::texture::Texture2D::new(
+            &renderer.context.device,
+            glam::IVec2::new(800, 600),
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            wgpu::TextureUsages::RENDER_ATTACHMENT |
+            wgpu::TextureUsages::TEXTURE_BINDING,
+        )),
+        layers: vec![Arc::new(
+            render::layers::example::TriangleLayer::new(
                 &renderer.context,
-                renderer.main_window.surface_format,
+                wgpu::TextureFormat::Rgba8UnormSrgb,
             )
             .unwrap(),
         )],
     });
 
-    //let main_window = renderer.context.main_window.clone();
-    //renderer.add_screen(zenit_render::rcore::screen::Screen::new(&renderer.context, main_window).into());
-    info!("Renderer is up and running");
+    let mut panel = ctpanel::ControlPanel::new(&renderer.context.device, &event_loop);
+    let mut engine = Engine { renderer, window };
+
+    let mut frame_info = FrameInfo {
+        delta: std::time::Duration::from_millis(1000 / 60),
+        frame_count: 0,
+    };
 
     event_loop.run(move |event, _, flow| match event {
-        Event::NewEvents(_) => {}
-        Event::WindowEvent { window_id: _, event } =>
-            //if window_id == renderer.main_window_surface.window().id() =>
-        {
-            match event {
-                WindowEvent::CloseRequested => {
-                    info!("Close requested");
-                    *flow = ControlFlow::Exit;
-                }
-                _ => {}
+        Event::WindowEvent { window_id, event } if window_id == engine.window.id() => match event {
+            WindowEvent::CloseRequested => {
+                info!("Close requested");
+                *flow = ControlFlow::Exit;
+
+                // Hide the window here so it disappears faster, while the app
+                // actually shuts down in the background
+                engine.window.set_visible(false);
             }
-        }
+            event => {
+                panel
+                    .egui_manager
+                    .winit_state
+                    .write()
+                    .unwrap()
+                    .on_event(&panel.egui_manager.context, &event);
+            }
+        },
         Event::MainEventsCleared => {
-            renderer.render_frame().unwrap();
+            let frame_start = Instant::now();
+            
+            panel.frame(&frame_info, &mut engine);
+            engine.renderer.render_frame().unwrap();
             *flow = ControlFlow::Poll;
+            frame_info.frame_count += 1;
+
+            let frame_end = Instant::now();
+            let frame_time = frame_end.duration_since(frame_start);
+            frame_info.delta = frame_time;
         }
         _ => {}
     });

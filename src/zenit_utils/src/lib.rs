@@ -13,6 +13,11 @@ pub fn ok<E>() -> Result<(), E> {
     Ok(())
 }
 
+/// Shorthand for `Default::default()` and such
+pub fn default<T: Default>() -> T {
+    T::default()
+}
+
 /// Aligns the value. Alignment doesn't have to be a power of two.
 ///
 /// ```
@@ -24,7 +29,7 @@ pub fn align(n: u64, a: u64) -> u64 {
 }
 
 /// Converts a 4-byte string into a u32
-/// 
+///
 /// ## Example
 /// ```
 /// use zenit_utils::string_as_u32;
@@ -61,7 +66,7 @@ macro_rules! include_bytes_align_as {
             pub bytes: Bytes,
         }
 
-        static ALIGNED: &AlignedAs::<$align_ty, [u8]> = &AlignedAs {
+        static ALIGNED: &AlignedAs<$align_ty, [u8]> = &AlignedAs {
             _align: [],
             bytes: *include_bytes!($path),
         };
@@ -76,18 +81,15 @@ macro_rules! include_bytes_align_as {
 macro_rules! include_bytes_as {
     ($target_ty:ty, $path:expr) => {{
         let size = ::std::mem::size_of::<$target_ty>();
-        
+
         let bytes = $crate::include_bytes_align_as!($target_ty, $path);
         if bytes.len() % size != 0 {
             // Ideally this should be a compile error
             panic!("File doesn't evenly fit needed type");
         }
-        
+
         let result: &'static [$target_ty] = unsafe {
-            ::std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u32,
-                bytes.len() / size,
-            )
+            ::std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / size)
         };
 
         result
