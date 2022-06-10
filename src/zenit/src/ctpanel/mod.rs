@@ -1,6 +1,5 @@
 //! Control panel is the main engine interface, hosting the actual game within
 //! a tiny window. Call it a developer UI if you want to.
-
 use crate::{
     engine::{Engine, FrameInfo},
     render::{
@@ -11,6 +10,10 @@ use crate::{
 use std::sync::{Arc, RwLock};
 use winit::{event_loop::EventLoop, window::Window};
 use zenit_utils::default;
+
+pub mod ext;
+pub mod side;
+pub mod top;
 
 pub struct EguiManager {
     pub context: egui::Context,
@@ -67,14 +70,13 @@ impl ControlPanel {
             );
 
             let primary_screen = renderer
-                .screens
-                .first()
-                .expect("don't fuck up the screen layout around this hack")
+                .find_screen("Game output")
+                .expect("game output texture not found")
                 .target
                 .clone();
-            
+
             self.game_texture = egui_layer.rpass.lock().register_native_texture(
-                &renderer.context.device, 
+                &renderer.context.device,
                 &primary_screen.get_current_view(),
                 wgpu::FilterMode::Nearest,
             );
@@ -88,55 +90,10 @@ impl ControlPanel {
 
         *self.egui_manager.pixels_per_point.write().unwrap() = engine.window.scale_factor() as _;
 
-        self.egui_manager.run(&engine.window, |ctx| {
-            egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
-                egui::menu::bar(ui, |ui| {
-                    ui.label("🚀 Zenit Engine {version}");
-                    ui.separator();
-
-                    ui.label("Tools:");
-                    let _ = ui.button("Game Data Viewer");
-                    let _ = ui.button("Log Viewer");
-                    let _ = ui.button("Resource Tracker");
-                });
-            });
-
-            egui::SidePanel::left("left_panel")
-                .default_width(250.0)
-                .resizable(true)
-                .show(&ctx, |ui| {
-                    ui.label("Commit: <whatever>");
-                    ui.label("Build type: <blah>");
-                    ui.label("Device: <GPU name>");
-                    ui.separator();
-
-                    ui.collapsing("Frame times", |ui| {
-                        let fill_space_amount = ui.available_size_before_wrap();
-                        let (rect, _response) = ui.allocate_at_least(
-                            egui::vec2(fill_space_amount.x, 100.0),
-                            egui::Sense::hover(),
-                        );
-
-                        let mut shapes = vec![];
-
-                        shapes.push(egui::Shape::Rect(egui::epaint::RectShape {
-                            rect,
-                            rounding: ui.style().noninteractive().rounding,
-                            fill: ui.visuals().extreme_bg_color,
-                            stroke: ui.style().noninteractive().bg_stroke,
-                        }));
-
-                        ui.painter().extend(shapes);
-
-                        ui.separator();
-                        ui.label("Legend:");
-                        ui.indent("legend_indent", |ui| {
-                            ui.label("Thing 1");
-                            ui.label("Thing 2");
-                            ui.label("Thing 3");
-                        })
-                    });
-                });
+        let window = engine.window.clone();
+        self.egui_manager.run(&window, |ctx| {
+            top::show(info, engine, ctx);
+            side::show(info, engine, ctx);
 
             egui::Window::new("Game Window")
                 .fixed_size([800.0, 600.0])
@@ -148,9 +105,8 @@ impl ControlPanel {
                     //    );
                     //})
 
-                    egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                        ui.image(self.game_texture, ui.available_size())
-                    });
+                    egui::Frame::dark_canvas(ui.style())
+                        .show(ui, |ui| ui.image(self.game_texture, ui.available_size()));
                 });
         });
     }

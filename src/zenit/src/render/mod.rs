@@ -32,6 +32,8 @@ impl Renderer {
             .block_on()
             .ok_or(anyhow!("Couldn't find a graphics device"))?;
 
+        let device_info = adapter.get_info();
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -55,7 +57,11 @@ impl Renderer {
         surface.configure(&device, &surface_config);
 
         Ok(Self {
-            context: Arc::new(RenderContext { device, queue }),
+            context: Arc::new(RenderContext {
+                device,
+                queue,
+                device_info,
+            }),
             screens: vec![],
             main_window: Arc::new(SwapchainTexture::new(
                 surface,

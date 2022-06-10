@@ -1,6 +1,9 @@
-use crate::engine::{Engine, FrameInfo};
+use crate::{
+    engine::{Engine, FrameInfo},
+    profiling::FrameProfiler,
+};
 use log::*;
-use std::{sync::Arc, time::Instant};
+use std::{mem, sync::Arc, time::Instant};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
@@ -8,6 +11,7 @@ pub mod crash;
 
 pub mod ctpanel;
 pub mod engine;
+pub mod profiling;
 pub mod render;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -38,16 +42,16 @@ pub fn main() -> ! {
             .expect("Couldn't create main window"),
     );
 
+    let frame_profiler = FrameProfiler::new();
     let mut renderer = render::Renderer::new(window.clone()).unwrap();
 
     renderer.screens.push(render::base::screen::Screen {
-        label: Some("dab".into()),
+        label: Some("Game output".into()),
         target: Arc::new(render::base::texture::Texture2D::new(
             &renderer.context.device,
             glam::IVec2::new(800, 600),
             wgpu::TextureFormat::Rgba8UnormSrgb,
-            wgpu::TextureUsages::RENDER_ATTACHMENT |
-            wgpu::TextureUsages::TEXTURE_BINDING,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         )),
         layers: vec![Arc::new(
             render::layers::example::TriangleLayer::new(
@@ -58,13 +62,28 @@ pub fn main() -> ! {
         )],
     });
 
+    //renderer.screens.push(render::base::screen::Screen {
+    //    label: Some("Blank".into()),
+    //    target: renderer.main_window.clone(),
+    //    layers: vec![Arc::new(
+    //        render::layers::BlankLayer::new(&renderer.context, renderer.main_window.surface_format)
+    //            .unwrap(),
+    //    )],
+    //});
+
     let mut panel = ctpanel::ControlPanel::new(&renderer.context.device, &event_loop);
-    let mut engine = Engine { renderer, window };
+    let mut engine = Engine {
+        renderer,
+        window,
+        frame_profiler,
+    };
 
     let mut frame_info = FrameInfo {
         delta: std::time::Duration::from_millis(1000 / 60),
         frame_count: 0,
     };
+
+    let mut profiler_frame = profiling::FrameEntry::default();
 
     event_loop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == engine.window.id() => match event {
@@ -87,9 +106,19 @@ pub fn main() -> ! {
         },
         Event::MainEventsCleared => {
             let frame_start = Instant::now();
-            
-            panel.frame(&frame_info, &mut engine);
-            engine.renderer.render_frame().unwrap();
+
+            profiler_frame.ui_time = profiling::measure_time(|| {
+                panel.frame(&frame_info, &mut engine);
+            });
+
+            profiler_frame.render_time = profiling::measure_time(|| {
+                engine.renderer.render_frame().unwrap();
+            });
+
+            engine
+                .frame_profiler
+                .push_frame(mem::take(&mut profiler_frame));
+
             *flow = ControlFlow::Poll;
             frame_info.frame_count += 1;
 
