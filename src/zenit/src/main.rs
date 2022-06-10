@@ -1,7 +1,10 @@
+#![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
+
 use crate::{
     engine::{Engine, FrameInfo},
     profiling::FrameProfiler,
 };
+use glam::IVec2;
 use log::*;
 use std::{mem, sync::Arc, time::Instant};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
@@ -87,6 +90,14 @@ pub fn main() -> ! {
 
     event_loop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == engine.window.id() => match event {
+            WindowEvent::Resized(new_size) => {
+                if new_size.width != 0 && new_size.height != 0 {
+                    engine.renderer.main_window.reconfigure(
+                        &engine.renderer.context.device,
+                        IVec2::new(new_size.width as _, new_size.height as _),
+                    );
+                }
+            }
             WindowEvent::CloseRequested => {
                 info!("Close requested");
                 *flow = ControlFlow::Exit;
@@ -118,6 +129,8 @@ pub fn main() -> ! {
             engine
                 .frame_profiler
                 .push_frame(mem::take(&mut profiler_frame));
+
+            print!("\rRender time: {:?}", engine.frame_profiler.frames.front().unwrap().render_time);
 
             *flow = ControlFlow::Poll;
             frame_info.frame_count += 1;

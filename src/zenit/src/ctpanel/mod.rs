@@ -9,7 +9,7 @@ use crate::{
 };
 use std::sync::{Arc, RwLock};
 use winit::{event_loop::EventLoop, window::Window};
-use zenit_utils::default;
+use zenit_utils::default_fn as default;
 
 pub mod ext;
 pub mod side;
@@ -110,4 +110,15 @@ impl ControlPanel {
                 });
         });
     }
+}
+
+#[derive(Default)]
+pub struct CtWindowResult {
+    pub should_remove: bool,
+}
+
+pub trait CtWindow {
+    fn open(&mut self);
+    fn close(&mut self);
+    fn frame(&mut self, ct: &mut ControlPanel, info: &FrameInfo, engine: &mut Engine) -> CtWindowResult;
 }

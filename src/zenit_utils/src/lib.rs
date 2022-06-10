@@ -14,7 +14,7 @@ pub fn ok<E>() -> Result<(), E> {
 }
 
 /// Shorthand for `Default::default()` and such
-pub fn default<T: Default>() -> T {
+pub fn default_fn<T: Default>() -> T {
     T::default()
 }
 

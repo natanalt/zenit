@@ -1,7 +1,7 @@
 use super::ext::EguiUiExtensions;
 use crate::engine::{Engine, FrameInfo};
 use std::time::Duration;
-use zenit_utils::default;
+use zenit_utils::default_fn as default;
 
 pub fn show(_frame: &FrameInfo, engine: &mut Engine, ctx: &egui::Context) {
     egui::SidePanel::left("left_panel")

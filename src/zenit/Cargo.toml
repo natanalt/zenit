@@ -13,6 +13,10 @@ default = ["crash-handler"]
 # Enabled by default; if disabled, Rust's default panic handler is used
 crash-handler = []
 
+# Effective only on Windows, if set, Zenit is linked using the Windows
+# subsystem, rather than the default console one.
+no-console = []
+
 [dependencies]
 zenit_lvl_core = { path = "../zenit_lvl_core" }
 zenit_lvl = { path = "../zenit_lvl" }
