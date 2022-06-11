@@ -1,5 +1,6 @@
 //! Control panel is the main engine interface, hosting the actual game within
 //! a tiny window. Call it a developer UI if you want to.
+use self::{side::SideView, top::TopView};
 use crate::{
     engine::{Engine, FrameInfo},
     render::{
@@ -7,7 +8,10 @@ use crate::{
         layers::EguiLayer,
     },
 };
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use winit::{event_loop::EventLoop, window::Window};
 use zenit_utils::default_fn as default;
 
@@ -46,40 +50,28 @@ impl EguiManager {
 
 pub struct ControlPanel {
     pub egui_manager: Arc<EguiManager>,
-    pub game_texture: egui::TextureId,
+    pub widgets: HashMap<String, Box<dyn CtWidget>>,
 }
 
 impl ControlPanel {
     pub fn new<T>(device: &wgpu::Device, el: &EventLoop<T>) -> Self {
         Self {
             egui_manager: Arc::new(EguiManager::new(device, el)),
-
-            // Invalid value, updated on the first frame
-            game_texture: egui::TextureId::User(0),
+            widgets: HashMap::default(),
         }
     }
 
     pub fn frame(&mut self, info: &FrameInfo, engine: &mut Engine) {
         if info.is_on_first_frame() {
             let renderer = &mut engine.renderer;
-
             let egui_layer = EguiLayer::new(
                 &renderer.context.device,
                 self.egui_manager.clone(),
                 renderer.main_window.get_format(),
             );
 
-            let primary_screen = renderer
-                .find_screen("Game output")
-                .expect("game output texture not found")
-                .target
-                .clone();
-
-            self.game_texture = egui_layer.rpass.lock().register_native_texture(
-                &renderer.context.device,
-                &primary_screen.get_current_view(),
-                wgpu::FilterMode::Nearest,
-            );
+            self.insert_widget("Side View", SideView);
+            self.insert_widget("Top View", TopView);
 
             renderer.screens.push(Screen {
                 label: Some("Control panel".into()),
@@ -92,33 +84,28 @@ impl ControlPanel {
 
         let window = engine.window.clone();
         self.egui_manager.run(&window, |ctx| {
-            top::show(info, engine, ctx);
-            side::show(info, engine, ctx);
-
-            egui::Window::new("Game Window")
-                .fixed_size([800.0, 600.0])
-                .show(&ctx, |ui| {
-                    //ui.centered_and_justified(|ui| {
-                    //    ui.label(
-                    //        "The game isn't running at the moment.\n\
-                    //        That's weird.",
-                    //    );
-                    //})
-
-                    egui::Frame::dark_canvas(ui.style())
-                        .show(ui, |ui| ui.image(self.game_texture, ui.available_size()));
-                });
+            for (_, widget) in &mut self.widgets {
+                widget.show(ctx, info, engine);
+            }
         });
+
+        self.widgets.retain(|_, w| !w.should_be_removed());
+    }
+
+    pub fn insert_widget(&mut self, name: &str, widget: impl CtWidget + 'static) {
+        self.widgets.insert(name.to_string(), Box::new(widget));
     }
 }
 
 #[derive(Default)]
-pub struct CtWindowResult {
-    pub should_remove: bool,
+pub struct CtResponse {
+    pub new_widgets: HashMap<String, Box<dyn CtWidget>>,
 }
 
-pub trait CtWindow {
-    fn open(&mut self);
-    fn close(&mut self);
-    fn frame(&mut self, ct: &mut ControlPanel, info: &FrameInfo, engine: &mut Engine) -> CtWindowResult;
+pub trait CtWidget {
+    fn show(&mut self, ctx: &egui::Context, frame: &FrameInfo, engine: &mut Engine) -> CtResponse;
+
+    fn should_be_removed(&self) -> bool {
+        false
+    }
 }

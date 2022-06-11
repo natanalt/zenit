@@ -130,8 +130,6 @@ pub fn main() -> ! {
                 .frame_profiler
                 .push_frame(mem::take(&mut profiler_frame));
 
-            print!("\rRender time: {:?}", engine.frame_profiler.frames.front().unwrap().render_time);
-
             *flow = ControlFlow::Poll;
             frame_info.frame_count += 1;
 
