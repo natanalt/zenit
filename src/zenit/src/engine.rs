@@ -1,4 +1,4 @@
-use crate::{profiling::FrameProfiler, render::Renderer};
+use crate::{profiling::FrameProfiler, render::Renderer, root::GameRoot};
 use std::{sync::Arc, time::Duration};
 use winit::window::Window;
 
@@ -6,6 +6,7 @@ pub struct Engine {
     pub window: Arc<Window>,
     pub renderer: Renderer,
     pub frame_profiler: FrameProfiler,
+    pub game_root: Option<GameRoot>,
 }
 
 pub struct FrameInfo {

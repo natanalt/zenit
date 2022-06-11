@@ -16,6 +16,8 @@ pub mod ctpanel;
 pub mod engine;
 pub mod profiling;
 pub mod render;
+pub mod root;
+pub mod platform;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -79,6 +81,7 @@ pub fn main() -> ! {
         renderer,
         window,
         frame_profiler,
+        game_root: None,
     };
 
     let mut frame_info = FrameInfo {

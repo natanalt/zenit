@@ -48,7 +48,7 @@ impl CtWidget for SideView {
                         );
 
                         // Frame time graph prototype
-                        // TODO: clean up frame time graph
+                        // TODO: clean up frame time graph (put it into a struct or smth)
                         {
                             let mut shapes = vec![];
 
@@ -203,7 +203,11 @@ impl CtWidget for SideView {
                 egui::CollapsingHeader::new("Game info")
                     .default_open(true)
                     .show(ui, |ui| {
-                        ui.e_faint_label("No game root selected.");
+                        if let Some(_game_root) = engine.game_root.clone() {
+                            ui.label("A game is selected, TODO UI");
+                        } else {
+                            ui.e_faint_label("No game root selected.");
+                        }
                     });
             });
         

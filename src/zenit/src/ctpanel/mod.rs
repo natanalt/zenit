@@ -8,16 +8,14 @@ use crate::{
         layers::EguiLayer,
     },
 };
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::{sync::{Arc, RwLock}, any::Any};
 use winit::{event_loop::EventLoop, window::Window};
 use zenit_utils::default_fn as default;
 
 pub mod ext;
 pub mod side;
 pub mod top;
+pub mod data_viewer;
 
 pub struct EguiManager {
     pub context: egui::Context,
@@ -50,14 +48,14 @@ impl EguiManager {
 
 pub struct ControlPanel {
     pub egui_manager: Arc<EguiManager>,
-    pub widgets: HashMap<String, Box<dyn CtWidget>>,
+    pub widgets: Vec<Box<dyn CtWidget>>,
 }
 
 impl ControlPanel {
     pub fn new<T>(device: &wgpu::Device, el: &EventLoop<T>) -> Self {
         Self {
             egui_manager: Arc::new(EguiManager::new(device, el)),
-            widgets: HashMap::default(),
+            widgets: vec![],
         }
     }
 
@@ -70,8 +68,8 @@ impl ControlPanel {
                 renderer.main_window.get_format(),
             );
 
-            self.insert_widget("Side View", SideView);
-            self.insert_widget("Top View", TopView);
+            self.widgets.push(Box::new(SideView));
+            self.widgets.push(Box::new(TopView));
 
             renderer.screens.push(Screen {
                 label: Some("Control panel".into()),
@@ -82,30 +80,44 @@ impl ControlPanel {
 
         *self.egui_manager.pixels_per_point.write().unwrap() = engine.window.scale_factor() as _;
 
+        let mut new_widgets = vec![];
+
         let window = engine.window.clone();
         self.egui_manager.run(&window, |ctx| {
-            for (_, widget) in &mut self.widgets {
-                widget.show(ctx, info, engine);
+            for widget in &mut self.widgets {
+                let mut response = widget.show(ctx, info, engine);
+                new_widgets.append(&mut response.new_widgets);
             }
         });
 
-        self.widgets.retain(|_, w| !w.should_be_removed());
-    }
+        self.widgets.retain(|w| w.should_be_retained());
 
-    pub fn insert_widget(&mut self, name: &str, widget: impl CtWidget + 'static) {
-        self.widgets.insert(name.to_string(), Box::new(widget));
+        'top: for new_widget in new_widgets {
+            if new_widget.is_unique() {
+                for old_widget in &self.widgets {
+                    if old_widget.as_ref().type_id() == new_widget.as_ref().type_id() {
+                        continue 'top;
+                    }
+                }
+            }
+            self.widgets.push(new_widget);
+        }
     }
 }
 
 #[derive(Default)]
 pub struct CtResponse {
-    pub new_widgets: HashMap<String, Box<dyn CtWidget>>,
+    pub new_widgets: Vec<Box<dyn CtWidget>>,
 }
 
-pub trait CtWidget {
+pub trait CtWidget: Any {
     fn show(&mut self, ctx: &egui::Context, frame: &FrameInfo, engine: &mut Engine) -> CtResponse;
 
-    fn should_be_removed(&self) -> bool {
-        false
+    fn is_unique(&self) -> bool {
+        true
+    }
+
+    fn should_be_retained(&self) -> bool {
+        true
     }
 }

@@ -1,11 +1,12 @@
-use super::{ext::EguiUiExtensions, CtWidget, CtResponse};
+use super::{ext::EguiUiExtensions, CtWidget, CtResponse, data_viewer::DataViewer};
 use crate::engine::{Engine, FrameInfo};
-use zenit_utils::default_fn as default;
 
 pub struct TopView;
 
 impl CtWidget for TopView {
     fn show(&mut self, ctx: &egui::Context, _: &FrameInfo, _: &mut Engine) -> CtResponse {
+        let mut new_widgets = vec![];
+
         egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.label(format!("🚀 Zenit Engine {}", crate::VERSION))
@@ -41,12 +42,16 @@ impl CtWidget for TopView {
                 ui.separator();
 
                 ui.label("Tools:");
-                let _ = ui.button("Game Data Viewer");
+                
+                if ui.button("Game Data Viewer").clicked() {
+                    new_widgets.push(Box::new(DataViewer::default()) as _);
+                }
+
                 let _ = ui.button("Log Viewer");
                 let _ = ui.button("Resource Tracker");
             });
         });
 
-        default()
+        CtResponse { new_widgets }
     }
 }
