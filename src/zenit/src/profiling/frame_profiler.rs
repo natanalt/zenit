@@ -59,6 +59,20 @@ impl FrameProfiler {
         self.running_sum = Duration::ZERO;
         self.running_frames = 0;
     }
+
+    pub fn calculate_fps(&self) -> u32 {
+        let mut frames = 0;
+        let mut total_time = Duration::ZERO;
+        for frame in &self.frames {
+            let frame_time = frame.total_time();
+            if (total_time + frame_time) > Duration::from_secs(1) {
+                break;
+            }
+            total_time += frame_time;
+            frames += 1;
+        }
+        frames
+    }
 }
 
 #[derive(Default, Clone)]

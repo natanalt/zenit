@@ -113,6 +113,12 @@ impl CtWidget for SideView {
                         }
 
                         ui.add_space(5.0);
+                        ui.horizontal(|ui| {
+                            ui.label("FPS:");
+                            ui.e_faint_label(engine.frame_profiler.calculate_fps().to_string());
+                        });
+
+                        ui.add_space(5.0);
                         ui.label("Legend:");
                         ui.indent("legend_indent", |ui| {
                             ui.horizontal(|ui| {
