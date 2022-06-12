@@ -21,6 +21,36 @@ impl PackedParser for Vec<u8> {
     }
 }
 
+impl<T: PackedParser> PackedParser for [T; 2] {
+    fn parse_packed<R: Read>(r: &mut R) -> AnyResult<Self> {
+        Ok([
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+        ])
+    }
+}
+
+impl<T: PackedParser> PackedParser for [T; 3] {
+    fn parse_packed<R: Read>(r: &mut R) -> AnyResult<Self> {
+        Ok([
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+        ])
+    }
+}
+
+impl<T: PackedParser> PackedParser for [T; 4] {
+    fn parse_packed<R: Read>(r: &mut R) -> AnyResult<Self> {
+        Ok([
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+            T::parse_packed(r)?,
+        ])
+    }
+}
+
 macro_rules! impl_parser {
     ($type:ty, $r:ident, $($content:tt)*) => {
         impl PackedParser for $type {

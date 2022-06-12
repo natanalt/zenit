@@ -15,8 +15,8 @@ pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
         NodeField::Single(_, name, ty) => quote! {
             let mut #name: Option<#ty> = None;
         },
-        NodeField::Many(_, name, ty) => quote! {
-            let mut #name: #ty = Default::default();
+        NodeField::Many(_, name, _) => quote! {
+            let mut #name = vec![];
         },
     });
 
@@ -43,12 +43,16 @@ pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
 
     let returns = fields.iter().map(|field| match field {
         NodeField::Single(node_name, name, _) => quote! {
-            #name: #name.ok_or(anyhow::anyhow!(
+            #name: #name.ok_or(::anyhow::anyhow!(
                 concat!("expected an `", #node_name, "` node")
             ))?,
         },
-        NodeField::Many(_, name, _) => quote! {
-            #name,
+        NodeField::Many(node_name, name, _) => quote! {
+            #name: #name.try_into().map_err(|err| ::anyhow::anyhow!(
+                "couldn't convert vec of `{}` node ({:?})",
+                #node_name,
+                err,
+            ))?,
         },
     });
 
@@ -73,7 +77,8 @@ pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
 
                 for _child in _children {
                     #(#conditionals)* {
-                        // else branch
+                        // Blank else branch
+                        // (conditionals always terminates with an else)
                     }
                 }
 

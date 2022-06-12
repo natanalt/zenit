@@ -11,6 +11,12 @@ where
 {
     /// Parses `Self` from given node, using provided reader. Initial seek position is undefined.
     fn from_node<R: Read + Seek>(raw: LevelNode, r: &mut R) -> AnyResult<Self>;
+
+    /// Attempts to read a node with a header.
+    fn from_reader(r: &mut (impl Read + Seek)) -> AnyResult<Self> {
+        let header = LevelNode::parse_header(r)?;
+        Self::from_node(header, r)
+    }
 }
 
 impl FromNode for LevelNode {

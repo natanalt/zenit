@@ -7,9 +7,9 @@ use std::sync::Arc;
 pub struct Texture2D {
     pub texture: wgpu::Texture,
     pub view: Arc<wgpu::TextureView>,
-    pub size: IVec2,
     pub format: wgpu::TextureFormat,
     pub usage: wgpu::TextureUsages,
+    pub size: IVec2,
 }
 
 impl Texture2D {

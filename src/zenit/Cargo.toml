@@ -9,11 +9,16 @@ build = "build/build.rs"
 [features]
 default = ["crash-handler"]
 
-# Enables the custom crash handler (on Windows it's a dialog box)
-# Enabled by default; if disabled, Rust's default panic handler is used
+# Enables the custom crash/panic handler. It's enabled by default.
+# If disabled, or if the platform doesn't support it, default Rust panic
+# handler is used.
+#
+# ## Windows
+# On Windows, a dedicated window is opened on crash. Once closed, default
+# handler is invoked as well.
 crash-handler = []
 
-# Effective only on Windows, if set, Zenit is linked using the Windows
+# Effective only on Windows. If set, Zenit is linked using the Windows
 # subsystem, rather than the default console one.
 no-console = []
 
@@ -32,6 +37,7 @@ pretty_env_logger = "0.4.0"
 toml = "0.5.9"
 pollster = "0.2.5"
 chrono = "0.4.19"
+clap = { version = "3.1.18", features = ["derive"] }
 
 winit = "0.26.1"
 glam = "0.20.5"
@@ -57,7 +63,7 @@ egui-winit = { git = "https://github.com/emilk/egui" }
 
 # Explicitly importing a newer version with alloc crate, as it allows to pass
 # Arc<Window> as a valid window handle, instead of requiring ownership or
-# immutable borrows
+# immutable borrows (wgpu includes an older one)
 raw-window-handle = { version = "0.4.3", features = ["alloc"] }
 
 [target.'cfg(windows)'.dependencies]

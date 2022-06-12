@@ -1,6 +1,6 @@
 //! Control panel is the main engine interface, hosting the actual game within
 //! a tiny window. Call it a developer UI if you want to.
-use self::{side::SideView, top::TopView};
+use self::{side::SideView, top::TopView, root_select::RootSelectWindow, message_box::MessageBox};
 use crate::{
     engine::{Engine, FrameInfo},
     render::{
@@ -16,6 +16,8 @@ pub mod ext;
 pub mod side;
 pub mod top;
 pub mod data_viewer;
+pub mod root_select;
+pub mod message_box;
 
 pub struct EguiManager {
     pub context: egui::Context,
@@ -68,8 +70,12 @@ impl ControlPanel {
                 renderer.main_window.get_format(),
             );
 
-            self.widgets.push(Box::new(SideView));
-            self.widgets.push(Box::new(TopView));
+            if !engine.game_root.is_invalid() {
+                self.widgets.push(Box::new(SideView));
+                self.widgets.push(Box::new(TopView));
+            } else {
+                self.widgets.push(Box::new(RootSelectWindow::default()));
+            }
 
             renderer.screens.push(Screen {
                 label: Some("Control panel".into()),
@@ -108,6 +114,24 @@ impl ControlPanel {
 #[derive(Default)]
 pub struct CtResponse {
     pub new_widgets: Vec<Box<dyn CtWidget>>,
+}
+
+impl CtResponse {
+    pub fn add_info_box(&mut self, title: &str, message: &str) {
+        self.new_widgets.push(Box::new(MessageBox::info(title, message)));
+    }
+
+    pub fn add_warn_box(&mut self, title: &str, message: &str) {
+        self.new_widgets.push(Box::new(MessageBox::warn(title, message)));
+    }
+
+    pub fn add_error_box(&mut self, title: &str, message: &str) {
+        self.new_widgets.push(Box::new(MessageBox::error(title, message)));
+    }
+
+    pub fn add_widget(&mut self, widget: impl CtWidget) {
+        self.new_widgets.push(Box::new(widget));
+    }
 }
 
 pub trait CtWidget: Any {

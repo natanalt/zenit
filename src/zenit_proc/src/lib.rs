@@ -26,8 +26,7 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 ///  * `#[node("NAME")]` - expects exactly one node of name `NAME` in the parent node. The field's
 ///    type must implement the [`zenit_lvl::FromNode`] trait as well.
 ///  * `#[nodes("NAME")]` - expects zero or more nodes of name `NAME` which will be accumualted in
-///    this field. The field's type must implement [`Default`] and have a function matching
-///    `push<T: FromNode>(&mut self, v: T)`. Basically, container types like [`Vec`] qualify.
+///    this field. The field's type must be convertible using `.try_into()` from a [`Vec`]
 ///
 /// If this structure has any fields not tagged with a node attribute, it must also implement the
 /// [`Default`] trait, to provide a default for such fields.
@@ -45,6 +44,10 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 ///     /// strings.
 ///     #[node("IDK_")]
 ///     pub other_values: Vec<String>,
+///     
+///     /// Expects exactly 4 `TXTR` nodes containing null terminated strings
+///     #[nodes("TXTR")]
+///     pub so_fancy: [CString; 4],
 ///
 ///     /// As it's untagged, this value will be initialized with its default value, that is `None`,
 ///     /// by the derived [`zenit_lvl::FromNode::from_node`] function.

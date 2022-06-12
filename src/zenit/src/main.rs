@@ -1,9 +1,15 @@
+
+// On Windows, the default subsystem is "console", which includes a ✨console✨
+// (at least by default)
+//
+// Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
 use crate::{
     engine::{Engine, FrameInfo},
-    profiling::FrameProfiler,
+    profiling::FrameProfiler, root::GameRoot,
 };
+use clap::Parser;
 use glam::IVec2;
 use log::*;
 use std::{mem, sync::Arc, time::Instant};
@@ -18,6 +24,8 @@ pub mod profiling;
 pub mod render;
 pub mod root;
 pub mod platform;
+pub mod cli;
+pub mod assets;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -32,6 +40,8 @@ pub fn main() -> ! {
         .filter_module("wgpu_core", LevelFilter::Error)
         .filter_module("naga", LevelFilter::Off)
         .init();
+    
+    let args = cli::Args::parse();
 
     info!("Welcome to Zenit Engine {}", VERSION);
 
@@ -81,7 +91,8 @@ pub fn main() -> ! {
         renderer,
         window,
         frame_profiler,
-        game_root: None,
+        game_root: GameRoot::new(args.game_root.as_ref()),
+        args,
     };
 
     let mut frame_info = FrameInfo {

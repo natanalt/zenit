@@ -1,4 +1,4 @@
-use super::{ext::EguiUiExtensions, CtWidget, CtResponse, data_viewer::DataViewer};
+use super::{ext::EguiUiExtensions, CtWidget, CtResponse, data_viewer::DataViewerWindow};
 use crate::engine::{Engine, FrameInfo};
 
 pub struct TopView;
@@ -44,7 +44,7 @@ impl CtWidget for TopView {
                 ui.label("Tools:");
                 
                 if ui.button("Game Data Viewer").clicked() {
-                    new_widgets.push(Box::new(DataViewer::default()) as _);
+                    new_widgets.push(Box::new(DataViewerWindow::default()) as _);
                 }
 
                 let _ = ui.button("Log Viewer");

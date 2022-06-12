@@ -1,11 +1,11 @@
 use super::{CtResponse, CtWidget};
 use crate::engine::{Engine, FrameInfo};
 
-pub struct DataViewer {
+pub struct DataViewerWindow {
     pub visible: bool,
 }
 
-impl Default for DataViewer {
+impl Default for DataViewerWindow {
     fn default() -> Self {
         Self {
             visible: true,
@@ -13,7 +13,7 @@ impl Default for DataViewer {
     }
 }
 
-impl CtWidget for DataViewer {
+impl CtWidget for DataViewerWindow {
     fn show(&mut self, ctx: &egui::Context, _: &FrameInfo, _engine: &mut Engine) -> CtResponse {
         egui::Window::new("Game Data Viewer")
             .resizable(true)

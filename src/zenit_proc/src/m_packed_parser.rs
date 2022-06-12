@@ -34,7 +34,7 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
                 });
 
             quote! {
-                #name: #field_ty ::try_from(#data_ty ::parse_packed(r)?)? ,
+                #name: < #field_ty > ::try_from(< #data_ty > ::parse_packed(r)?)? ,
             }
         })
         .collect::<TokenStream2>();

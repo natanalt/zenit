@@ -9,5 +9,5 @@ pub struct LevelScript {
     #[node("INFO")]
     pub info: u8,
     #[node("BODY")]
-    pub data: LazyData<u8>,
+    pub data: LazyData<Vec<u8>>,
 }

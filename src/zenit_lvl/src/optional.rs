@@ -4,8 +4,14 @@ use std::io::{Read, Seek};
 use zenit_lvl_core::{FromNode, LevelNode};
 use zenit_utils::AnyResult;
 
+// TODO: think of a better name for optional level data nodes
+
+/// Optional level data nodes are `LVL_` nodes present in certain level files
+/// (like side/all.lvl for rebel alliance assets), which can be loaded
+/// dynamically by the game as needed.
 #[derive(Debug, Clone)]
 pub struct OptionalLevelData {
+    /// FNV-1a hash of the name
     pub name_hash: u32,
     pub contents: LevelData,
 }

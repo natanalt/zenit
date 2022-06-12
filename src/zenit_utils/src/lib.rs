@@ -2,6 +2,7 @@
 
 pub mod fnv1a;
 pub mod packed;
+pub mod counter;
 
 pub use fnv1a::fnv1a_hash;
 pub use fnv1a::FnvHashExt;
@@ -9,7 +10,7 @@ pub use fnv1a::FnvHashExt;
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
 /// Shorthand for `Ok(())`, cause it looks ugly
-pub fn ok<E>() -> Result<(), E> {
+pub const fn ok<E>() -> Result<(), E> {
     Ok(())
 }
 
@@ -24,11 +25,11 @@ pub fn default_fn<T: Default>() -> T {
 /// use zenit_utils::align;
 /// assert_eq!(16, align(10, 8));
 /// ```
-pub fn align(n: u64, a: u64) -> u64 {
+pub const fn align(n: u64, a: u64) -> u64 {
     (n + a - 1) / a * a
 }
 
-/// Converts a 4-byte string into a u32
+/// Converts a 4-byte string into a u32 (little endian)
 ///
 /// ## Example
 /// ```
@@ -75,7 +76,7 @@ macro_rules! include_bytes_align_as {
     }};
 }
 
-/// Includes a file into the program as a &'static slice of given type,
+/// Includes a file into the program as a `&'static` slice of given type,
 /// with guaranteed proper alignments.
 #[macro_export]
 macro_rules! include_bytes_as {

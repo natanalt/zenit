@@ -1,4 +1,4 @@
-use super::{ext::EguiUiExtensions, CtWidget, CtResponse};
+use super::{ext::EguiUiExtensions, CtResponse, CtWidget};
 use crate::engine::{Engine, FrameInfo};
 use std::time::Duration;
 use zenit_utils::default_fn as default;
@@ -7,6 +7,8 @@ pub struct SideView;
 
 impl CtWidget for SideView {
     fn show(&mut self, ctx: &egui::Context, _frame: &FrameInfo, engine: &mut Engine) -> CtResponse {
+        let response = CtResponse::default();
+
         egui::SidePanel::left("left_panel")
             .default_width(250.0)
             .resizable(true)
@@ -209,14 +211,10 @@ impl CtWidget for SideView {
                 egui::CollapsingHeader::new("Game info")
                     .default_open(true)
                     .show(ui, |ui| {
-                        if let Some(_game_root) = engine.game_root.clone() {
-                            ui.label("A game is selected, TODO UI");
-                        } else {
-                            ui.e_faint_label("No game root selected.");
-                        }
+                        ui.label("A game is selected, TODO UI");
                     });
             });
-        
-        default()
+
+        response
     }
 }
