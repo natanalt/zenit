@@ -12,17 +12,17 @@ pub struct LevelModel {
     #[node("NODE")]
     pub node: CString,
     #[node("INFO")]
-    pub info: ModelInfo,
+    pub info: LevelModelInfo,
     #[nodes("segm")]
-    pub segments: Vec<ModelSegment>,
+    pub segments: Vec<LevelModelSegment>,
     #[node("SPHR")]
-    pub sphere: ModelSphere,
+    pub sphere: LevelModelSphere,
 }
 
 /// Proceed with caution, the layout may not be what it appears to be.
 /// Or maybe it's all correct, I have no clue
 #[derive(Debug, Clone, PackedParser)]
-pub struct ModelInfo {
+pub struct LevelModelInfo {
     pub unknown0x00: u32,
     pub unknown0x04: u32,
     pub unknown0x08: u32,
@@ -34,17 +34,17 @@ pub struct ModelInfo {
 }
 
 #[derive(Debug, Clone, FromNode)]
-pub struct ModelSegment {
+pub struct LevelModelSegment {
     #[node("INFO")]
-    pub info: ModelInfo,
+    pub info: LevelModelInfo,
     #[node("MTRL")]
-    pub material: ModelMaterial,
+    pub material: LevelModelMaterial,
     #[node("RTYP")]
     pub render_type: CString,
     #[nodes("TNAM")]
-    pub texture_names: [SegmentTextureName; 4],
+    pub texture_names: [LevelModelTextureName; 4],
     #[node("BBOX")]
-    pub aabb: SegmentAABB,
+    pub aabb: LevelModelSegmentAABB,
     #[node("IBUF")]
     pub index_buffer: LazyData<Vec<u8>>,
     #[nodes("VBUF")]
@@ -54,16 +54,16 @@ pub struct ModelSegment {
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct SegmentInfo {
+pub struct LevelModelSegmentInfo {
     #[from(u32)]
-    pub topology: SegmentTopology,
+    pub topology: LevelModelSegmentTopology,
     pub vertex_count: u32,
     pub primitive_count: u32,
 }
 
 #[ext_repr(u32)]
 #[derive(Debug, Clone, PartialEq)]
-pub enum SegmentTopology {
+pub enum LevelModelSegmentTopology {
     PointList = 1,
     LineList = 2,
     LineStrip = 3,
@@ -73,9 +73,9 @@ pub enum SegmentTopology {
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct ModelMaterial {
+pub struct LevelModelMaterial {
     #[from(u32)]
-    pub flags: MaterialFlags,
+    pub flags: LevelMaterialFlags,
     pub diffuse_color: [u8; 4],
     pub specular_color: [u8; 4],
     pub specular_exponent: u32,
@@ -84,7 +84,7 @@ pub struct ModelMaterial {
 }
 
 bitflags! {
-    pub struct MaterialFlags: u32 {
+    pub struct LevelMaterialFlags: u32 {
         const NORMAL = 1 << 0;
 		const HARDEDGED = 1 << 1;
 		const TRANSPARENT = 1 << 2;
@@ -104,27 +104,27 @@ bitflags! {
     }
 }
 
-impl From<u32> for MaterialFlags {
+impl From<u32> for LevelMaterialFlags {
     fn from(value: u32) -> Self {
         Self::from_bits_truncate(value)
     }
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct SegmentTextureName {
+pub struct LevelModelTextureName {
     pub index: u32,
     pub name: CString,
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct SegmentAABB {
+pub struct LevelModelSegmentAABB {
     pub min: [f32; 3],
     pub max: [f32; 3],
 }
 
 /// No idea what this does, I assume the layout is supposed to mean that
 #[derive(Debug, Clone, PackedParser)]
-pub struct ModelSphere {
+pub struct LevelModelSphere {
     pub position: [f32; 3],
     pub radius: f32,
 }

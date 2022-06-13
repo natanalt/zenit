@@ -1,18 +1,18 @@
-pub mod convert;
-
-use crate::render::base::texture::Texture2D;
+use crate::render::base::{texture::Texture2D, context::RenderContext};
 use anyhow::{anyhow, bail};
-use std::sync::Arc;
-use zenit_lvl::texture::{LevelTexture, TextureKind};
+use zenit_lvl::raw::texture::{LevelTexture, LevelTextureKind};
 use zenit_utils::AnyResult;
 
-pub struct TextureAsset {
-    pub name: String,
-    pub gpu_texture: Arc<Texture2D>,
+pub mod convert;
+
+pub enum TextureAsset {
+    Texture2D(Texture2D),
+    TextureCube(()),
 }
 
 impl TextureAsset {
-    pub fn from_level(texture: LevelTexture) -> AnyResult<Self> {
+    /// Tries to load a texture into the GPU
+    pub fn load(texture: LevelTexture, _context: &RenderContext) -> AnyResult<(String, Self)> {
         if texture.formats.is_empty() {
             bail!("No formats?");
         }
@@ -25,9 +25,8 @@ impl TextureAsset {
             .ok_or(anyhow!("Compressed textures are unsupported"))?;
         
         match format.info.kind {
-            TextureKind::Normal => todo!(),
-            TextureKind::Cubemap => todo!(),
-            _ => bail!("Format unsupported: {:?}", format.info.kind),
+            LevelTextureKind::Normal => todo!(),
+            LevelTextureKind::Cubemap => todo!(),
         }
     }
 }

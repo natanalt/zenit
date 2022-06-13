@@ -8,52 +8,52 @@ pub struct LevelTexture {
     #[node("NAME")]
     pub name: CString,
     #[nodes("FMT_")]
-    pub formats: Vec<TextureFormat>,
+    pub formats: Vec<LevelTextureFormat>,
 }
 
 #[derive(Debug, Clone, FromNode)]
-pub struct TextureFormat {
+pub struct LevelTextureFormat {
     #[node("INFO")]
-    pub info: TextureFormatInfo,
+    pub info: LevelTextureFormatInfo,
     #[nodes("FACE")]
-    pub faces: Vec<TextureFace>,
+    pub faces: Vec<LevelTextureFace>,
 }
 
 #[derive(Debug, Clone, FromNode)]
-pub struct TextureFace {
+pub struct LevelTextureFace {
     #[nodes("LVL_")]
-    pub mipmaps: Vec<TextureMipmap>,
+    pub mipmaps: Vec<LevelTextureMipmap>,
 }
 
 #[derive(Debug, Clone, FromNode)]
-pub struct TextureMipmap {
+pub struct LevelTextureMipmap {
     #[node("INFO")]
-    pub info: MipmapInfo,
+    pub info: LevelTextureMipmapInfo,
     #[node("BODY")]
     pub body: LazyData<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct MipmapInfo {
+pub struct LevelTextureMipmapInfo {
     pub mip_level: u32,
     pub body_size: u32,
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct TextureFormatInfo {
+pub struct LevelTextureFormatInfo {
     #[from(u32)]
-    pub format: FormatKind,
+    pub format: LevelTextureFormatKind,
     pub width: u16,
     pub height: u16,
     pub depth: u16,
     pub mipmaps: u16,
     #[from(u32)]
-    pub kind: TextureKind,
+    pub kind: LevelTextureKind,
 }
 
 #[ext_repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum FormatKind {
+pub enum LevelTextureFormatKind {
     // List seems to be based on D3D9
     // The following are the only formats I happened to see used by the munge tools.
     
@@ -82,26 +82,26 @@ pub enum FormatKind {
     V8U8 = 0x3c,
 }
 
-impl FormatKind {
+impl LevelTextureFormatKind {
     pub fn is_compressed(self) -> bool {
         match self {
-            FormatKind::DXT1 | FormatKind::DXT3 => true,
-            FormatKind::A8R8G8B8
-            | FormatKind::R5G6B5
-            | FormatKind::A1R5G5B5
-            | FormatKind::A4R4G4B4
-            | FormatKind::A8
-            | FormatKind::L8
-            | FormatKind::A8L8
-            | FormatKind::A4L4
-            | FormatKind::V8U8 => false,
+            LevelTextureFormatKind::DXT1 | LevelTextureFormatKind::DXT3 => true,
+            LevelTextureFormatKind::A8R8G8B8
+            | LevelTextureFormatKind::R5G6B5
+            | LevelTextureFormatKind::A1R5G5B5
+            | LevelTextureFormatKind::A4R4G4B4
+            | LevelTextureFormatKind::A8
+            | LevelTextureFormatKind::L8
+            | LevelTextureFormatKind::A8L8
+            | LevelTextureFormatKind::A4L4
+            | LevelTextureFormatKind::V8U8 => false,
         }
     }
 }
 
 #[ext_repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TextureKind {
+pub enum LevelTextureKind {
     Normal = 1,
     Cubemap = 2,
 }

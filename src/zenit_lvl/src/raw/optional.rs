@@ -1,4 +1,4 @@
-use crate::LevelData;
+use super::LevelData;
 use anyhow::bail;
 use std::io::{Read, Seek};
 use zenit_lvl_core::{FromNode, LevelNode};

@@ -43,9 +43,14 @@ impl CtWidget for TopView {
 
                 ui.label("Tools:");
                 
-                if ui.button("Game Data Viewer").clicked() {
-                    new_widgets.push(Box::new(DataViewerWindow::default()) as _);
-                }
+                ui.menu_button("Resource Viewers...", |ui| {
+                    let _ = ui.button("Texture Viewer");
+                    let _ = ui.button("Model Viewer");
+                });
+
+                //if ui.button("Game Data Viewer").clicked() {
+                //    new_widgets.push(Box::new(DataViewerWindow::default()) as _);
+                //}
 
                 let _ = ui.button("Log Viewer");
                 let _ = ui.button("Resource Tracker");
