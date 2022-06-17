@@ -27,7 +27,7 @@ pub fn fnv1a_hash(buffer: &[u8]) -> u32 {
     result
 }
 
-pub trait FnvHashExt {
+pub trait Fnv1aHashExt {
     /// Verifies if given string's FNV-1a hash matches this value.
     ///
     /// ## Example:
@@ -40,7 +40,7 @@ pub trait FnvHashExt {
     fn fnv1a_matches(self, string: &str) -> bool;
 }
 
-impl FnvHashExt for u32 {
+impl Fnv1aHashExt for u32 {
     fn fnv1a_matches(self, string: &str) -> bool {
         fnv1a_hash(string.as_bytes()) == self
     }

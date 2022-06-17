@@ -1,7 +1,8 @@
 //! Various helpers for rendering
 
-/// [`wgpu::PrimitiveState`] that's most likely to reappear in various
-/// pipelines.
+/// [`wgpu::PrimitiveState`] that's most likely to reappear in various pipelines.
+/// 
+/// It's a back culled triangle list with clockwise front faces.
 pub const USUAL_PRIMITIVES: wgpu::PrimitiveState = wgpu::PrimitiveState {
     topology: wgpu::PrimitiveTopology::TriangleList,
     strip_index_format: None,

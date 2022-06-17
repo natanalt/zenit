@@ -1,7 +1,7 @@
+use bitflags::bitflags;
 use std::ffi::CString;
 use zenit_lvl_core::LazyData;
-use zenit_proc::{FromNode, PackedParser, ext_repr};
-use bitflags::bitflags;
+use zenit_proc::{ext_repr, FromNode, PackedParser};
 
 #[derive(Debug, Clone, FromNode)]
 pub struct LevelModel {
@@ -30,7 +30,7 @@ pub struct LevelModelInfo {
     pub vertex_box: [[f32; 3]; 2],
     pub visibility_box: [[f32; 3]; 2],
     pub unknown0x40: u32, // ?
-    pub face_count: u32, // ?
+    pub face_count: u32,  // ?
 }
 
 #[derive(Debug, Clone, FromNode)]
@@ -86,21 +86,21 @@ pub struct LevelModelMaterial {
 bitflags! {
     pub struct LevelMaterialFlags: u32 {
         const NORMAL = 1 << 0;
-		const HARDEDGED = 1 << 1;
-		const TRANSPARENT = 1 << 2;
-		const GLOSS_MAP = 1 << 3;
-		const GLOW = 1 << 4;
-		const NORMAL_MAP = 1 << 5;
-		const ADDITIVE = 1 << 6;
-		const SPECULAR = 1 << 7;
-		const ENVIRONMENT_MAP = 1 << 8;
-		const VERTEX_LIGHTING = 1 << 9;
-		const TILED_NORMAL_MAP = 1 << 11;
-		const DOUBLE_SIDED = 1 << 16;
-		const SCROLLING = 1 << 24;
-		const ENERGY = 1 << 25;
-		const ANIMATED = 1 << 26;
-		const ATTACHED_LIGHT = 1 << 27;
+        const HARDEDGED = 1 << 1;
+        const TRANSPARENT = 1 << 2;
+        const GLOSS_MAP = 1 << 3;
+        const GLOW = 1 << 4;
+        const NORMAL_MAP = 1 << 5;
+        const ADDITIVE = 1 << 6;
+        const SPECULAR = 1 << 7;
+        const ENVIRONMENT_MAP = 1 << 8;
+        const VERTEX_LIGHTING = 1 << 9;
+        const TILED_NORMAL_MAP = 1 << 11;
+        const DOUBLE_SIDED = 1 << 16;
+        const SCROLLING = 1 << 24;
+        const ENERGY = 1 << 25;
+        const ANIMATED = 1 << 26;
+        const ATTACHED_LIGHT = 1 << 27;
     }
 }
 

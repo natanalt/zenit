@@ -1,4 +1,4 @@
-use crate::{profiling::FrameProfiler, render::Renderer, root::GameRoot, cli};
+use crate::{cli, profiling::FrameProfiler, render::Renderer, root::GameRoot};
 use std::{sync::Arc, time::Duration};
 use winit::window::Window;
 

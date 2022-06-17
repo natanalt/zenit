@@ -1,11 +1,11 @@
-use super::{ext::EguiUiExtensions, CtWidget, CtResponse, data_viewer::DataViewerWindow};
+use super::{ext::EguiUiExtensions, CtResponse, CtWidget, texture_viewer::TextureViewerWindow};
 use crate::engine::{Engine, FrameInfo};
 
 pub struct TopView;
 
 impl CtWidget for TopView {
     fn show(&mut self, ctx: &egui::Context, _: &FrameInfo, _: &mut Engine) -> CtResponse {
-        let mut new_widgets = vec![];
+        let mut response = CtResponse::default();
 
         egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -42,10 +42,12 @@ impl CtWidget for TopView {
                 ui.separator();
 
                 ui.label("Tools:");
-                
+
                 ui.menu_button("Resource Viewers...", |ui| {
-                    let _ = ui.button("Texture Viewer");
-                    let _ = ui.button("Model Viewer");
+                    if ui.button("Texture Viewer").clicked() {
+                        response.make_widget::<TextureViewerWindow>();
+                        ui.close_menu();
+                    }
                 });
 
                 //if ui.button("Game Data Viewer").clicked() {
@@ -57,6 +59,6 @@ impl CtWidget for TopView {
             });
         });
 
-        CtResponse { new_widgets }
+        response
     }
 }

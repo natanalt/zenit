@@ -1,4 +1,3 @@
-
 // On Windows, the default subsystem is "console", which includes a ✨console✨
 // (at least by default)
 //
@@ -7,25 +6,26 @@
 
 use crate::{
     engine::{Engine, FrameInfo},
-    profiling::FrameProfiler, root::GameRoot,
+    profiling::FrameProfiler,
+    root::GameRoot,
 };
 use clap::Parser;
-use glam::IVec2;
+use glam::UVec2;
 use log::*;
-use std::{mem, sync::Arc, time::Instant};
+use std::sync::Arc;
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
 pub mod crash;
 
+pub mod assets;
+pub mod cli;
 pub mod ctpanel;
 pub mod engine;
+pub mod platform;
 pub mod profiling;
 pub mod render;
 pub mod root;
-pub mod platform;
-pub mod cli;
-pub mod assets;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -40,7 +40,7 @@ pub fn main() -> ! {
         .filter_module("wgpu_core", LevelFilter::Error)
         .filter_module("naga", LevelFilter::Off)
         .init();
-    
+
     let args = cli::Args::parse();
 
     info!("Welcome to Zenit Engine {}", VERSION);
@@ -58,35 +58,14 @@ pub fn main() -> ! {
     );
 
     let frame_profiler = FrameProfiler::new();
-    let mut renderer = render::Renderer::new(window.clone()).unwrap();
+    let renderer = render::Renderer::new(window.clone()).unwrap();
 
-    renderer.screens.push(render::base::screen::Screen {
-        label: Some("Game output".into()),
-        target: Arc::new(render::base::texture::Texture2D::new(
-            &renderer.context.device,
-            glam::IVec2::new(800, 600),
-            wgpu::TextureFormat::Rgba8UnormSrgb,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-        )),
-        layers: vec![Arc::new(
-            render::layers::example::TriangleLayer::new(
-                &renderer.context,
-                wgpu::TextureFormat::Rgba8UnormSrgb,
-            )
-            .unwrap(),
-        )],
-    });
+    let mut panel = ctpanel::ControlPanel::new(
+        &renderer.context,
+        renderer.main_window.surface_format,
+        &event_loop,
+    );
 
-    //renderer.screens.push(render::base::screen::Screen {
-    //    label: Some("Blank".into()),
-    //    target: renderer.main_window.clone(),
-    //    layers: vec![Arc::new(
-    //        render::layers::BlankLayer::new(&renderer.context, renderer.main_window.surface_format)
-    //            .unwrap(),
-    //    )],
-    //});
-
-    let mut panel = ctpanel::ControlPanel::new(&renderer.context.device, &event_loop);
     let mut engine = Engine {
         renderer,
         window,
@@ -100,15 +79,13 @@ pub fn main() -> ! {
         frame_count: 0,
     };
 
-    let mut profiler_frame = profiling::FrameEntry::default();
-
     event_loop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == engine.window.id() => match event {
             WindowEvent::Resized(new_size) => {
                 if new_size.width != 0 && new_size.height != 0 {
                     engine.renderer.main_window.reconfigure(
                         &engine.renderer.context.device,
-                        IVec2::new(new_size.width as _, new_size.height as _),
+                        UVec2::new(new_size.width as _, new_size.height as _),
                     );
                 }
             }
@@ -121,34 +98,23 @@ pub fn main() -> ! {
                 engine.window.set_visible(false);
             }
             event => {
-                panel
-                    .egui_manager
-                    .winit_state
-                    .write()
-                    .unwrap()
-                    .on_event(&panel.egui_manager.context, &event);
+                panel.egui_winit_state.on_event(&panel.egui_context, &event);
             }
         },
         Event::MainEventsCleared => {
-            let frame_start = Instant::now();
+            let frame_time = profiling::measure_time(|| {
+                let profiler_frame = profiling::FrameEntry::default();
 
-            profiler_frame.ui_time = profiling::measure_time(|| {
-                panel.frame(&frame_info, &mut engine);
+                engine.renderer.begin_frame();
+                let commands = panel.frame(&frame_info, &mut engine);
+                engine.renderer.finish_frame(commands).unwrap();
+
+                engine.frame_profiler.push_frame(profiler_frame);
+
+                *flow = ControlFlow::Poll;
+                frame_info.frame_count += 1;
             });
 
-            profiler_frame.render_time = profiling::measure_time(|| {
-                engine.renderer.render_frame().unwrap();
-            });
-
-            engine
-                .frame_profiler
-                .push_frame(mem::take(&mut profiler_frame));
-
-            *flow = ControlFlow::Poll;
-            frame_info.frame_count += 1;
-
-            let frame_end = Instant::now();
-            let frame_time = frame_end.duration_since(frame_start);
             frame_info.delta = frame_time;
         }
         _ => {}

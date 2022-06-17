@@ -13,7 +13,7 @@ where
     fn from_node<R: Read + Seek>(raw: LevelNode, r: &mut R) -> AnyResult<Self>;
 
     /// Attempts to read a node with a header.
-    fn from_reader(r: &mut (impl Read + Seek)) -> AnyResult<Self> {
+    fn from_read(r: &mut (impl Read + Seek)) -> AnyResult<Self> {
         let header = LevelNode::parse_header(r)?;
         Self::from_node(header, r)
     }

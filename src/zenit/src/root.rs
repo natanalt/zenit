@@ -44,6 +44,7 @@ impl GameRoot {
         result
     }
 
+    #[inline]
     pub fn is_invalid(&self) -> bool {
         self.main.to_str() == Some(INVALID_MARKER)
     }
@@ -64,13 +65,12 @@ impl GameRoot {
     }
 }
 
-const MAX_SCAN_DEPTH: u32 = 4;
-
 /// Attempts to scan this directory for a valid main directory. If none is
 /// found, or depth limit is exceeded, returns None.
 fn scan_directory_for_main(root: PathBuf, depth: u32) -> io::Result<Option<PathBuf>> {
     // A directory is considered "valid" if it hits all required files
     const REQUIRED_FILES: &[&str] = &["common.lvl", "core.lvl", "ingame.lvl", "mission.lvl"];
+    const MAX_SCAN_DEPTH: u32 = 4;
 
     if depth > MAX_SCAN_DEPTH {
         return Ok(None);

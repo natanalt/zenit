@@ -14,7 +14,7 @@ impl CtWidget for SideView {
             .resizable(true)
             .show(&ctx, |ui| {
                 egui::Grid::new("device_info").show(ui, |ui| {
-                    let info = &engine.renderer.context.device_info;
+                    let info = &engine.renderer.context.adapter_info;
 
                     ui.label("Device:");
                     ui.e_faint_label(&info.name).on_hover_ui(|ui| {

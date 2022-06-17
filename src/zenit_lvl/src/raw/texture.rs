@@ -54,9 +54,9 @@ pub struct LevelTextureFormatInfo {
 #[ext_repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LevelTextureFormatKind {
-    // List seems to be based on D3D9
-    // The following are the only formats I happened to see used by the munge tools.
-    
+    // The formats are derived from texture formats supported by D3D9
+    // All entries in this enum are ones I found to be used by texture munge
+    // tools, despite Direct3D support waaaay more formats than that
     /// Compressed texture
     DXT1 = string_as_u32("DXT1"),
     /// Compressed texture
@@ -72,7 +72,7 @@ pub enum LevelTextureFormatKind {
     /// 8-bit alpha only
     A8 = 0x1c,
     /// 8-bit luminance channel only
-    /// (D3D9 included custom lighting stuff)
+    /// (D3D9 included built-in lighting stuff, cause early 2000s APIs)
     L8 = 0x32,
     /// 8-bit alpha + 8-bit luminance
     A8L8 = 0x33,
@@ -83,6 +83,22 @@ pub enum LevelTextureFormatKind {
 }
 
 impl LevelTextureFormatKind {
+    pub fn channel_count(self) -> Option<u32> {
+        match self {
+            LevelTextureFormatKind::DXT1 => None,
+            LevelTextureFormatKind::DXT3 => None,
+            LevelTextureFormatKind::A8R8G8B8 => Some(4),
+            LevelTextureFormatKind::R5G6B5 => Some(3),
+            LevelTextureFormatKind::A1R5G5B5 => Some(4),
+            LevelTextureFormatKind::A4R4G4B4 => Some(4),
+            LevelTextureFormatKind::A8 => Some(1),
+            LevelTextureFormatKind::L8 => Some(1),
+            LevelTextureFormatKind::A8L8 => Some(2),
+            LevelTextureFormatKind::A4L4 => Some(2),
+            LevelTextureFormatKind::V8U8 => Some(2),
+        }
+    }
+
     pub fn is_compressed(self) -> bool {
         match self {
             LevelTextureFormatKind::DXT1 | LevelTextureFormatKind::DXT3 => true,

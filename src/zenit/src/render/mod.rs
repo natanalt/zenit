@@ -1,21 +1,19 @@
-use anyhow::{anyhow, bail};
-use base::{context::RenderContext, screen::Screen, swapchain::SwapchainTexture};
-use glam::IVec2;
-use log::*;
+use self::base::{texture::Texture2D, RenderContext};
+use anyhow::anyhow;
+use base::surface::MainWindow;
+use glam::UVec2;
 use pollster::FutureExt;
 use std::sync::Arc;
 use winit::window::Window;
 use zenit_utils::{ok, AnyResult};
 
 pub mod base;
-pub mod layers;
+pub mod pipelines;
 
 pub struct Renderer {
     pub context: Arc<RenderContext>,
-    pub screens: Vec<Screen>,
-
-    pub main_winit_window: Arc<Window>,
-    pub main_window: Arc<SwapchainTexture>,
+    pub main_window: MainWindow,
+    pub builtin_textures: BuiltinTextures,
 }
 
 impl Renderer {
@@ -32,8 +30,6 @@ impl Renderer {
             .block_on()
             .ok_or(anyhow!("Couldn't find a graphics device"))?;
 
-        let device_info = adapter.get_info();
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -45,101 +41,83 @@ impl Renderer {
             )
             .block_on()?;
 
-        let surface_format = surface.get_preferred_format(&adapter).unwrap();
-        let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: window.inner_size().width,
-            height: window.inner_size().height,
-            present_mode: wgpu::PresentMode::Mailbox,
-        };
-
-        surface.configure(&device, &surface_config);
+        let context = Arc::new(RenderContext {
+            device,
+            queue,
+            adapter_info: adapter.get_info(),
+            adapter,
+        });
 
         Ok(Self {
-            context: Arc::new(RenderContext {
-                device,
-                queue,
-                device_info,
-            }),
-            screens: vec![],
-            main_window: Arc::new(SwapchainTexture::new(
-                surface,
-                surface_format,
-                surface_config,
-            )),
-            main_winit_window: window,
+            main_window: MainWindow::new(&context, surface, window),
+            builtin_textures: BuiltinTextures::new(&context),
+            context,
         })
     }
 
-    pub fn render_frame(&self) -> AnyResult {
-        if self.screens.is_empty() {
-            bail!("Cannot render without any screens");
-        }
+    pub fn begin_frame(&mut self) {
+        self.main_window.begin_frame(&self.context);
+    }
 
-        if let Err(err) = self.main_window.update_current_texture() {
-            match err {
-                wgpu::SurfaceError::Lost => {
-                    let mut config = self.main_window.surface_config.write().unwrap();
-                    config.width = self.main_winit_window.inner_size().width;
-                    config.height = self.main_winit_window.inner_size().height;
-                    self.main_window
-                        .surface
-                        .configure(&self.context.device, &config);
-                }
-
-                wgpu::SurfaceError::OutOfMemory => Err(err)?,
-
-                wgpu::SurfaceError::Outdated => {
-                    let size = self.main_winit_window.inner_size();
-
-                    // On Windows, if the game window is minimized, the size
-                    // becomes (0, 0), which will promptly cause a crash if
-                    // a surface reconfiguration is requested.
-                    //
-                    // Therefore, only reconfigure the swapchain if the
-                    // dimensions are actually vlaid.
-                    if size.width != 0 && size.height != 0 {
-                        self.main_window.reconfigure(
-                            &self.context.device,
-                            IVec2::new(size.width as _, size.height as _),
-                        );
-                    }
-                }
-
-                wgpu::SurfaceError::Timeout => {
-                    warn!("Main window swapchain timed out");
-                }
-            }
-
-            // Retry again next frame
-            return ok();
-        }
-
-        let mut buffers = vec![];
-        for screen in &self.screens {
-            if screen.layers.is_empty() {
-                bail!("Trying to render a layerless screen (`{:?}`)", screen.label);
-            }
-
-            for layer in &screen.layers {
-                buffers.extend(layer.render(&self.context, screen.target.as_ref()));
-            }
-        }
+    pub fn finish_frame(&mut self, buffers: Vec<wgpu::CommandBuffer>) -> AnyResult {
+        assert!(
+            !buffers.is_empty(),
+            "You need to submit at least one command buffer"
+        );
 
         self.context.queue.submit(buffers);
-        self.main_window.present();
+        self.main_window.finish_frame();
 
         ok()
     }
+}
 
-    pub fn find_screen(&self, label: &str) -> Option<&Screen> {
-        self.screens.iter().find(|screen| {
-            if let Some(screen_label) = &screen.label {
-                screen_label == label
-            } else {
-                false
-            }
-        })
+pub struct BuiltinTextures {
+    pub not_found: Arc<Texture2D>,
+    pub corrupted: Arc<Texture2D>,
+}
+
+impl BuiltinTextures {
+    pub fn new(context: &RenderContext) -> Self {
+        Self {
+            not_found: Arc::new(Texture2D::from_rgba8(
+                context,
+                UVec2::new(256, 256),
+                &make_checkered_texture(256, 64, [0, 0, 0], [255, 0, 255]),
+            )),
+            corrupted: Arc::new(Texture2D::from_rgba8(
+                context,
+                UVec2::new(256, 256),
+                &make_checkered_texture(256, 64, [0, 0, 0], [255, 0, 0]),
+            )),
+        }
     }
+}
+
+fn make_checkered_texture(size: usize, square_size: usize, ca: [u8; 3], cb: [u8; 3]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(size * size * 4);
+
+    for y in 0..size {
+        let flip = y % 2 == 1;
+        for x in 0..size {
+            let mut side = (x / square_size) % 2;
+            if flip {
+                side = if side == 0 { 1 } else { 0 };
+            }
+
+            if side == 0 {
+                result.push(ca[0]);
+                result.push(ca[1]);
+                result.push(ca[2]);
+                result.push(255);
+            } else {
+                result.push(cb[0]);
+                result.push(cb[1]);
+                result.push(cb[2]);
+                result.push(255);
+            }
+        }
+    }
+
+    result
 }

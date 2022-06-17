@@ -23,10 +23,7 @@ impl PackedParser for Vec<u8> {
 
 impl<T: PackedParser> PackedParser for [T; 2] {
     fn parse_packed<R: Read>(r: &mut R) -> AnyResult<Self> {
-        Ok([
-            T::parse_packed(r)?,
-            T::parse_packed(r)?,
-        ])
+        Ok([T::parse_packed(r)?, T::parse_packed(r)?])
     }
 }
 

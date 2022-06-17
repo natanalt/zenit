@@ -1,11 +1,16 @@
 //! Various utilities used by the various code
 
-pub mod fnv1a;
-pub mod packed;
-pub mod counter;
+use byteorder::{NativeEndian, WriteBytesExt};
+use std::io::Cursor;
+use std::mem;
 
+pub mod color;
+pub mod counter;
+pub mod packed;
+
+pub mod fnv1a;
 pub use fnv1a::fnv1a_hash;
-pub use fnv1a::FnvHashExt;
+pub use fnv1a::Fnv1aHashExt;
 
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
@@ -48,6 +53,17 @@ pub const fn string_as_u32(s: &str) -> u32 {
     } else {
         panic!("Invalid string length");
     }
+}
+
+pub fn pack_floats(buffer: &[f32]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(buffer.len() * mem::size_of::<f32>());
+    let mut cursor = Cursor::new(&mut result);
+
+    for &value in buffer {
+        cursor.write_f32::<NativeEndian>(value).unwrap();
+    }
+
+    result
 }
 
 /// Used by the [`zenit_proc::ext_repr`] proc macro
