@@ -5,7 +5,7 @@ use winit::window::Window;
 
 use super::RenderContext;
 
-pub struct MainWindow {
+pub struct RenderWindow {
     pub winit_window: Arc<Window>,
     pub surface: wgpu::Surface,
     pub surface_format: wgpu::TextureFormat,
@@ -18,7 +18,7 @@ pub struct CurrentFrame {
     pub view: wgpu::TextureView,
 }
 
-impl MainWindow {
+impl RenderWindow {
     /// Initializes all wgpu state for given window
     pub fn new(
         context: &RenderContext,

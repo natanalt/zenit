@@ -1,18 +1,60 @@
+use crate::{main_window::MainWindow, schedule::TopFrameStage};
+use bevy_ecs::prelude::*;
+
 use self::base::{texture::Texture2D, RenderContext};
 use anyhow::anyhow;
-use base::surface::MainWindow;
+use base::surface::RenderWindow;
 use glam::UVec2;
 use pollster::FutureExt;
-use std::sync::Arc;
+use std::{sync::Arc, ops::{DerefMut, Deref}, mem};
 use winit::window::Window;
 use zenit_utils::{ok, AnyResult};
 
 pub mod base;
 pub mod pipelines;
 
+pub struct RenderBuffers(pub Vec<wgpu::CommandBuffer>);
+
+impl Deref for RenderBuffers {
+    type Target = Vec<wgpu::CommandBuffer>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RenderBuffers {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub fn init(world: &mut World, schedule: &mut Schedule) {
+    let window = world
+        .get_resource::<MainWindow>()
+        .expect("main window not found")
+        .0
+        .clone();
+    
+    world.insert_resource(Renderer::new(window).expect("couldn't init the renderer"));
+    schedule.add_system_to_stage(TopFrameStage::RenderStart, begin_frame_system);
+    schedule.add_system_to_stage(TopFrameStage::RenderFinish, finish_frame_system);
+}
+
+pub fn begin_frame_system(mut renderer: ResMut<Renderer>) {
+    renderer.begin_frame();
+}
+
+pub fn finish_frame_system(
+    mut buffers: ResMut<RenderBuffers>,
+    mut renderer: ResMut<Renderer>,
+) {
+    renderer.finish_frame(mem::take(&mut buffers)).unwrap();
+}
+
 pub struct Renderer {
     pub context: Arc<RenderContext>,
-    pub main_window: MainWindow,
+    pub main_window: RenderWindow,
     pub builtin_textures: BuiltinTextures,
 }
 
@@ -49,7 +91,7 @@ impl Renderer {
         });
 
         Ok(Self {
-            main_window: MainWindow::new(&context, surface, window),
+            main_window: RenderWindow::new(&context, surface, window),
             builtin_textures: BuiltinTextures::new(&context),
             context,
         })

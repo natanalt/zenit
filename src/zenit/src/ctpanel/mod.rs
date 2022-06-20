@@ -5,15 +5,23 @@ use crate::{
     engine::{Engine, FrameInfo},
     render::base::RenderContext,
 };
+use bevy_ecs::prelude::*;
 use egui_wgpu::renderer::RenderPass as EguiRenderPass;
 use std::any::Any;
 use winit::event_loop::EventLoop;
+
 pub mod ext;
 pub mod message_box;
 pub mod root_select;
 pub mod side;
-pub mod top;
 pub mod texture_viewer;
+pub mod top;
+
+pub fn init(world: &mut World, schedule: &mut Schedule) {
+    world.insert_resource(egui::Context::default());
+    // ???
+    world.insert_resource(egui_winit::State::new_with_wayland_display(None));
+}
 
 pub struct ControlPanel {
     pub egui_context: egui::Context,
@@ -68,13 +76,23 @@ impl ControlPanel {
             self.widgets.push(new_widget);
         }
 
-        let rcontext = &engine.renderer.context;
+        self.render(command_buffers, full_output, engine)
+    }
 
-        let mut encoder = rcontext
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Egui Command Encoder"),
-            });
+    fn render(
+        &mut self,
+        mut command_buffers: Vec<wgpu::CommandBuffer>,
+        full_output: egui::FullOutput,
+        engine: &mut Engine,
+    ) -> Vec<wgpu::CommandBuffer> {
+        let render_context = &engine.renderer.context;
+
+        let mut encoder =
+            render_context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Egui Command Encoder"),
+                });
 
         let wsize = engine.window.inner_size();
         let screen_descriptor = egui_wgpu::renderer::ScreenDescriptor {
@@ -83,20 +101,30 @@ impl ControlPanel {
         };
 
         for (id, image_delta) in &full_output.textures_delta.set {
-            self.egui_pass
-                .update_texture(&rcontext.device, &rcontext.queue, *id, image_delta);
+            self.egui_pass.update_texture(
+                &render_context.device,
+                &render_context.queue,
+                *id,
+                image_delta,
+            );
         }
 
         let tesselated = self.egui_context.tessellate(full_output.shapes.clone());
 
         self.egui_pass.update_buffers(
-            &rcontext.device,
-            &rcontext.queue,
+            &render_context.device,
+            &render_context.queue,
             &tesselated,
             &screen_descriptor,
         );
 
-        let view = &engine.renderer.main_window.current.as_ref().expect("no current frame").view;
+        let view = &engine
+            .renderer
+            .main_window
+            .current
+            .as_ref()
+            .expect("no current frame")
+            .view;
 
         self.egui_pass.execute(
             &mut encoder,

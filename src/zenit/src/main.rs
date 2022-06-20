@@ -1,5 +1,4 @@
 // On Windows, the default subsystem is "console", which includes a ✨console✨
-// (at least by default)
 //
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
@@ -7,13 +6,20 @@
 use crate::{
     engine::{Engine, FrameInfo},
     profiling::FrameProfiler,
-    root::GameRoot,
+    render::Renderer,
+    root::GameRoot, main_window::MainWindow,
 };
+use bevy_ecs::prelude::*;
 use clap::Parser;
 use glam::UVec2;
 use log::*;
-use std::sync::Arc;
-use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
+use std::{ops::Deref, sync::Arc};
+use winit::{
+    dpi::LogicalSize,
+    event::*,
+    event_loop::*,
+    window::{Window, WindowBuilder},
+};
 
 #[cfg(feature = "crash-handler")]
 pub mod crash;
@@ -26,6 +32,8 @@ pub mod platform;
 pub mod profiling;
 pub mod render;
 pub mod root;
+pub mod schedule;
+pub mod main_window;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -57,35 +65,26 @@ pub fn main() -> ! {
             .expect("Couldn't create main window"),
     );
 
-    let frame_profiler = FrameProfiler::new();
-    let renderer = render::Renderer::new(window.clone()).unwrap();
+    //let renderer = render::Renderer::new(window.clone()).unwrap();
 
-    let mut panel = ctpanel::ControlPanel::new(
-        &renderer.context,
-        renderer.main_window.surface_format,
-        &event_loop,
-    );
+    let mut world = World::new();
+    let mut schedule = schedule::create_top_scheduler();
 
-    let mut engine = Engine {
-        renderer,
-        window,
-        frame_profiler,
-        game_root: GameRoot::new(args.game_root.as_ref()),
-        args,
-    };
-
-    let mut frame_info = FrameInfo {
-        delta: std::time::Duration::from_millis(1000 / 60),
-        frame_count: 0,
-    };
+    world.insert_resource(MainWindow(window.clone()));
+    world.insert_resource(args);
+    
+    render::init(&mut world, &mut schedule);
+    ctpanel::init(&mut world, &mut schedule);
 
     event_loop.run(move |event, _, flow| match event {
-        Event::WindowEvent { window_id, event } if window_id == engine.window.id() => match event {
+        Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
             WindowEvent::Resized(new_size) => {
                 if new_size.width != 0 && new_size.height != 0 {
-                    engine.renderer.main_window.reconfigure(
-                        &engine.renderer.context.device,
-                        UVec2::new(new_size.width as _, new_size.height as _),
+                    let mut renderer = world.get_resource_mut::<Renderer>().unwrap();
+                    let context = renderer.context.clone();
+                    renderer.main_window.reconfigure(
+                        &context.device,
+                        UVec2::new(new_size.width, new_size.height),
                     );
                 }
             }
@@ -95,27 +94,14 @@ pub fn main() -> ! {
 
                 // Hide the window here so it disappears faster, while the app
                 // actually shuts down in the background
-                engine.window.set_visible(false);
+                window.set_visible(false);
             }
             event => {
-                panel.egui_winit_state.on_event(&panel.egui_context, &event);
+                //panel.egui_winit_state.on_event(&panel.egui_context, &event);
             }
         },
         Event::MainEventsCleared => {
-            let frame_time = profiling::measure_time(|| {
-                let profiler_frame = profiling::FrameEntry::default();
-
-                engine.renderer.begin_frame();
-                let commands = panel.frame(&frame_info, &mut engine);
-                engine.renderer.finish_frame(commands).unwrap();
-
-                engine.frame_profiler.push_frame(profiler_frame);
-
-                *flow = ControlFlow::Poll;
-                frame_info.frame_count += 1;
-            });
-
-            frame_info.delta = frame_time;
+            schedule.run(&mut world);
         }
         _ => {}
     });
