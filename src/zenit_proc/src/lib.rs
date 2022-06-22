@@ -7,6 +7,7 @@ mod m_define_node_type;
 mod m_ext_repr;
 mod m_from_node;
 mod m_packed_parser;
+mod m_tupled_container_derefs;
 
 /// Implements the [`zenit_lvl::PackedParser`] trait on given type, if all of its fields also
 /// implement it.
@@ -33,6 +34,7 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 ///
 /// ## Example
 /// ```ignore
+// Ignored, since doctests can't link zenit_lvl
 /// #[derive(Debug, Clone, Default, zenit_proc::FromNode)]
 /// struct ParserTest {
 ///     /// Expects a single `NAME` node, whose payload will be parsed as a [`CString`] and then
@@ -70,6 +72,7 @@ pub fn from_node_derive(input: TokenStream) -> TokenStream {
 /// **Important:** this macro assumes that `zenit_utils` is available.
 ///
 /// ## Example
+// Ignored since the doctests can't link zenit_utils
 /// ```ignore
 /// use zenit_proc::ext_repr;
 ///
@@ -91,6 +94,24 @@ pub fn ext_repr(input: TokenStream, source_item: TokenStream) -> TokenStream {
     m_ext_repr::ext_repr(input, source_item)
 }
 
+// TODO: think of a better name for "TupledContainerDeref" lol
+/// Creates [`std::ops::Deref`] and [`std::ops::DerefMut`] implementations for
+/// a struct with a single unnamed (tupled) parameter.
+/// 
+/// ## Example
+/// ```
+/// #[derive(zenit_proc::TupledContainerDerefs)]
+/// struct ExampleStruct(pub Vec<usize>);
+/// 
+/// let value = ExampleStruct(vec![100, 200, 300]);
+/// assert_eq!(value[1], 200);
+/// ```
+#[proc_macro_derive(TupledContainerDerefs)]
+pub fn tupled_container_derefs(input: TokenStream) -> TokenStream {
+    m_tupled_container_derefs::tupled_container_derefs(input)
+}
+
+// This is kept in case it's ever useful again (likely not but whatevs)
 #[proc_macro]
 #[deprecated = "replaced in favor of derive macros"]
 pub fn define_node_type(input: TokenStream) -> TokenStream {

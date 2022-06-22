@@ -1,187 +1,134 @@
 //! Control panel is the main engine interface, hosting the actual game within
 //! a tiny window. Call it a developer UI if you want to.
-use self::{message_box::MessageBox, root_select::RootSelectWindow, side::SideView, top::TopView};
 use crate::{
-    engine::{Engine, FrameInfo},
-    render::base::RenderContext,
+    main_window::MainWindow,
+    render::{
+        self,
+        base::{surface::RenderWindow, RenderContext},
+        RenderCommands,
+    },
+    schedule::TopFrameStage,
 };
 use bevy_ecs::prelude::*;
-use egui_wgpu::renderer::RenderPass as EguiRenderPass;
-use std::any::Any;
-use winit::event_loop::EventLoop;
+use std::sync::Mutex;
+
+pub use egui_wgpu::renderer::RenderPass as EguiRenderPass;
+pub use egui_winit::State as EguiWinitState;
 
 pub mod ext;
 pub mod message_box;
 pub mod root_select;
 pub mod side;
-pub mod texture_viewer;
 pub mod top;
+//pub mod texture_viewer;
+
+#[derive(Component, Default)]
+pub struct Widget;
 
 pub fn init(world: &mut World, schedule: &mut Schedule) {
-    world.insert_resource(egui::Context::default());
-    // ???
-    world.insert_resource(egui_winit::State::new_with_wayland_display(None));
+    schedule.add_system_to_stage(
+        TopFrameStage::FrameStart,
+        frame_start_system.after(render::begin_frame_system),
+    );
+    schedule.add_system_to_stage(
+        TopFrameStage::FrameFinish,
+        frame_end_system.before(render::finish_frame_system),
+    );
+
+    message_box::init(world, schedule);
+    root_select::init(world, schedule);
+    side::init(world, schedule);
+    top::init(world, schedule);
+
+    world.init_resource::<Mutex<egui::Context>>();
+
+    let context = world.get_resource::<RenderContext>().unwrap();
+    let window = world.get_resource::<RenderWindow>().unwrap();
+    let render_pass = EguiRenderPass::new(&context.device, window.surface_format, 1);
+
+    // TODO: once egui-wgpu allows Send + Sync, use insert_resource instead
+    // The egui-wgpu RenderPass implementation includes a non-concurrent
+    // TypeMap, which makes the whole otherwise Send + Sync structure screwed
+    // in multithreading. Hopefully Bevy's ECS handles this well lol.
+    world.insert_non_send_resource(render_pass);
+
+    // TODO: better egui+winit integration stuff
+    // Note: at the time of writing, egui_winit also took an &EventLoop param,
+    // to attempt getting an optional Wayland handle, only to get clipboard
+    // support for this platform. No idea wtf is happening, but this needs to
+    // be looked into, since winit isn't properly integrated into egui here.
+    // And yes, clipboard is otherwise broken on other platforms (cursors too)
+    world.insert_resource(EguiWinitState::new_with_wayland_display(None));
 }
 
-pub struct ControlPanel {
-    pub egui_context: egui::Context,
-    pub egui_winit_state: egui_winit::State,
-    pub egui_pass: egui_wgpu::renderer::RenderPass,
-    pub widgets: Vec<Box<dyn CtWidget>>,
+pub fn frame_start_system(
+    mut winit_state: ResMut<EguiWinitState>,
+    egui_context: Res<Mutex<egui::Context>>,
+    main_window: Res<MainWindow>,
+) {
+    let inputs = winit_state.take_egui_input(&main_window);
+    egui_context.lock().unwrap().begin_frame(inputs);
 }
 
-impl ControlPanel {
-    pub fn new<T>(ctx: &RenderContext, format: wgpu::TextureFormat, el: &EventLoop<T>) -> Self {
-        Self {
-            egui_context: Default::default(),
-            egui_winit_state: egui_winit::State::new(el),
-            egui_pass: EguiRenderPass::new(&ctx.device, format, 1),
-            widgets: vec![],
-        }
-    }
+pub fn frame_end_system(
+    mut commands: ResMut<RenderCommands>,
+    mut egui_pass: NonSendMut<EguiRenderPass>,
+    egui_context: ResMut<Mutex<egui::Context>>,
+    render_context: Res<RenderContext>,
+    main_window: Res<MainWindow>,
+    render_window: Res<RenderWindow>,
+) {
+    let egui_context = egui_context.lock().unwrap();
+    let full_output = egui_context.end_frame();
 
-    pub fn frame(&mut self, info: &FrameInfo, engine: &mut Engine) -> Vec<wgpu::CommandBuffer> {
-        if info.is_on_first_frame() {
-            if !engine.game_root.is_invalid() {
-                self.widgets.push(Box::new(SideView));
-                self.widgets.push(Box::new(TopView));
-            } else {
-                self.widgets.push(Box::new(RootSelectWindow::default()));
-            }
-        }
+    let mut encoder =
+        render_context
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Egui Command Encoder"),
+            });
 
-        let mut new_widgets = vec![];
-        let mut command_buffers = vec![];
+    let wsize = main_window.inner_size();
+    let screen_descriptor = egui_wgpu::renderer::ScreenDescriptor {
+        size_in_pixels: [wsize.width, wsize.height],
+        pixels_per_point: main_window.scale_factor() as f32,
+    };
 
-        let full_output = self.egui_context.run(
-            self.egui_winit_state.take_egui_input(&engine.window),
-            |ctx| {
-                for widget in &mut self.widgets {
-                    let mut response = widget.show(ctx, info, engine);
-                    new_widgets.append(&mut response.new_widgets);
-                    command_buffers.append(&mut response.pre_buffers);
-                }
-            },
-        );
-
-        self.widgets.retain(|w| w.should_be_retained());
-        'top: for new_widget in new_widgets {
-            if new_widget.is_unique() {
-                for old_widget in &self.widgets {
-                    if old_widget.as_ref().type_id() == new_widget.as_ref().type_id() {
-                        continue 'top;
-                    }
-                }
-            }
-            self.widgets.push(new_widget);
-        }
-
-        self.render(command_buffers, full_output, engine)
-    }
-
-    fn render(
-        &mut self,
-        mut command_buffers: Vec<wgpu::CommandBuffer>,
-        full_output: egui::FullOutput,
-        engine: &mut Engine,
-    ) -> Vec<wgpu::CommandBuffer> {
-        let render_context = &engine.renderer.context;
-
-        let mut encoder =
-            render_context
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Egui Command Encoder"),
-                });
-
-        let wsize = engine.window.inner_size();
-        let screen_descriptor = egui_wgpu::renderer::ScreenDescriptor {
-            size_in_pixels: [wsize.width, wsize.height],
-            pixels_per_point: engine.window.scale_factor() as f32,
-        };
-
-        for (id, image_delta) in &full_output.textures_delta.set {
-            self.egui_pass.update_texture(
-                &render_context.device,
-                &render_context.queue,
-                *id,
-                image_delta,
-            );
-        }
-
-        let tesselated = self.egui_context.tessellate(full_output.shapes.clone());
-
-        self.egui_pass.update_buffers(
+    for (id, image_delta) in &full_output.textures_delta.set {
+        egui_pass.update_texture(
             &render_context.device,
             &render_context.queue,
-            &tesselated,
-            &screen_descriptor,
+            *id,
+            image_delta,
         );
-
-        let view = &engine
-            .renderer
-            .main_window
-            .current
-            .as_ref()
-            .expect("no current frame")
-            .view;
-
-        self.egui_pass.execute(
-            &mut encoder,
-            view,
-            &tesselated,
-            &screen_descriptor,
-            Some(wgpu::Color::BLACK),
-        );
-
-        for id in &full_output.textures_delta.free {
-            self.egui_pass.free_texture(id);
-        }
-
-        command_buffers.push(encoder.finish());
-        command_buffers
-    }
-}
-
-#[derive(Default)]
-pub struct CtResponse {
-    pub new_widgets: Vec<Box<dyn CtWidget>>,
-    pub pre_buffers: Vec<wgpu::CommandBuffer>,
-}
-
-impl CtResponse {
-    pub fn add_info_box(&mut self, title: &str, message: &str) {
-        self.new_widgets
-            .push(Box::new(MessageBox::info(title, message)));
     }
 
-    pub fn add_warn_box(&mut self, title: &str, message: &str) {
-        self.new_widgets
-            .push(Box::new(MessageBox::warn(title, message)));
+    let tesselated = egui_context.tessellate(full_output.shapes.clone());
+
+    egui_pass.update_buffers(
+        &render_context.device,
+        &render_context.queue,
+        &tesselated,
+        &screen_descriptor,
+    );
+
+    let view = &render_window
+        .current
+        .as_ref()
+        .expect("no current frame")
+        .view;
+
+    egui_pass.execute(
+        &mut encoder,
+        view,
+        &tesselated,
+        &screen_descriptor,
+        Some(wgpu::Color::BLACK),
+    );
+
+    for id in &full_output.textures_delta.free {
+        egui_pass.free_texture(id);
     }
 
-    pub fn add_error_box(&mut self, title: &str, message: &str) {
-        self.new_widgets
-            .push(Box::new(MessageBox::error(title, message)));
-    }
-
-    pub fn add_widget(&mut self, unboxed_widget: impl CtWidget) {
-        self.new_widgets.push(Box::new(unboxed_widget));
-    }
-
-    pub fn make_widget<T: CtWidget + Default>(&mut self) {
-        self.new_widgets.push(Box::new(T::default()));
-    }
-}
-
-pub trait CtWidget: Any {
-    fn show(&mut self, ctx: &egui::Context, frame: &FrameInfo, engine: &mut Engine) -> CtResponse;
-
-    fn is_unique(&self) -> bool {
-        true
-    }
-
-    fn should_be_retained(&self) -> bool {
-        true
-    }
+    commands.push(encoder.finish());
 }

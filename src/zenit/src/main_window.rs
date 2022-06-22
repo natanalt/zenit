@@ -1,15 +1,9 @@
-use std::{sync::Arc, ops::Deref};
+use std::sync::Arc;
 use winit::window::Window;
+use zenit_proc::TupledContainerDerefs;
 
 /// Handle to the main window
+#[derive(TupledContainerDerefs)]
 pub struct MainWindow(pub Arc<Window>);
-
-impl Deref for MainWindow {
-    type Target = Window;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
 
 // Window events may be placed here someday

@@ -26,7 +26,8 @@ impl GameRoot {
         let result = if let Some(path) = override_path.map(PathBuf::clone) {
             Self {
                 main: scan_directory_for_main(path, 0)
-                    .unwrap()
+                    .ok()
+                    .flatten()
                     .unwrap_or_else(|| PathBuf::from(INVALID_MARKER)),
             }
         } else if let Some(path) = crate::platform::find_bf2() {

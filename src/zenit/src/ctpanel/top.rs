@@ -1,64 +1,66 @@
-use super::{ext::EguiUiExtensions, CtResponse, CtWidget, texture_viewer::TextureViewerWindow};
-use crate::engine::{Engine, FrameInfo};
+use super::ext::EguiUiExtensions;
+use crate::schedule::TopFrameStage;
+use bevy_ecs::prelude::*;
+use std::sync::Mutex;
 
-pub struct TopView;
+pub fn init(_world: &mut World, schedule: &mut Schedule) {
+    schedule.add_system_to_stage(
+        TopFrameStage::ControlPanel,
+        top_view.after(super::side::side_view),
+    );
+}
 
-impl CtWidget for TopView {
-    fn show(&mut self, ctx: &egui::Context, _: &FrameInfo, _: &mut Engine) -> CtResponse {
-        let mut response = CtResponse::default();
+pub fn top_view(ctx: Res<Mutex<egui::Context>>) {
+    let ctx = ctx.lock().unwrap();
+    egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
+        egui::menu::bar(ui, |ui| {
+            ui.label(format!("🚀 Zenit Engine {}", crate::VERSION))
+                .on_hover_ui(|ui| {
+                    egui::Grid::new("build_data").show(ui, |ui| {
+                        if cfg!(debug_assertions) {
+                            ui.e_faint_label("Debug build");
+                        } else {
+                            ui.e_faint_label("Release build");
+                        }
+                        ui.end_row();
 
-        egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.label(format!("🚀 Zenit Engine {}", crate::VERSION))
-                    .on_hover_ui(|ui| {
-                        egui::Grid::new("build_data").show(ui, |ui| {
-                            if cfg!(debug_assertions) {
-                                ui.e_faint_label("Debug build");
-                            } else {
-                                ui.e_faint_label("Release build");
-                            }
-                            ui.end_row();
+                        ui.label("Commit:");
+                        ui.e_faint_label(&env!("VERGEN_GIT_SHA")[0..7]);
+                        ui.end_row();
 
-                            ui.label("Commit:");
-                            ui.e_faint_label(&env!("VERGEN_GIT_SHA")[0..7]);
-                            ui.end_row();
+                        ui.label("Built on:");
+                        ui.e_faint_label(env!("VERGEN_BUILD_DATE"));
+                        ui.end_row();
 
-                            ui.label("Built on:");
-                            ui.e_faint_label(env!("VERGEN_BUILD_DATE"));
-                            ui.end_row();
-
-                            ui.label("Rustc:");
-                            ui.e_faint_label(env!("VERGEN_RUSTC_SEMVER"));
-                            ui.end_row();
-                        });
-
-                        // Explicitly set the width, as separator takes up all
-                        // available space by default
-                        ui.allocate_ui(egui::vec2(150.0, 6.0), egui::Ui::separator);
-
-                        ui.colored_label(egui::Color32::RED, "♥");
+                        ui.label("Rustc:");
+                        ui.e_faint_label(env!("VERGEN_RUSTC_SEMVER"));
+                        ui.end_row();
                     });
 
-                ui.separator();
+                    // Explicitly set the width, as separator takes up all
+                    // available space by default
+                    ui.allocate_ui(egui::vec2(150.0, 6.0), egui::Ui::separator);
 
-                ui.label("Tools:");
-
-                ui.menu_button("Resource Viewers...", |ui| {
-                    if ui.button("Texture Viewer").clicked() {
-                        response.make_widget::<TextureViewerWindow>();
-                        ui.close_menu();
-                    }
+                    ui.colored_label(egui::Color32::RED, "♥");
                 });
 
-                //if ui.button("Game Data Viewer").clicked() {
-                //    new_widgets.push(Box::new(DataViewerWindow::default()) as _);
-                //}
+            ui.separator();
 
-                let _ = ui.button("Log Viewer");
-                let _ = ui.button("Resource Tracker");
+            ui.label("Tools:");
+
+            ui.menu_button("Resource Viewers...", |ui| {
+                if ui.button("Texture Viewer").clicked() {
+                    //response.make_widget::<TextureViewerWindow>();
+                    ui.close_menu();
+                }
             });
-        });
 
-        response
-    }
+            //if ui.button("Game Data Viewer").clicked() {
+            //    new_widgets.push(Box::new(DataViewerWindow::default()) as _);
+            //}
+
+            let _ = ui.button("Log Viewer");
+            let _ = ui.button("Resource Tracker");
+        });
+    });
 }

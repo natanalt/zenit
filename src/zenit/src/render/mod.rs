@@ -1,121 +1,92 @@
-use crate::{main_window::MainWindow, schedule::TopFrameStage};
-use bevy_ecs::prelude::*;
-
 use self::base::{texture::Texture2D, RenderContext};
-use anyhow::anyhow;
+use crate::{main_window::MainWindow, schedule::TopFrameStage};
 use base::surface::RenderWindow;
-use glam::UVec2;
+use bevy_ecs::prelude::*;
+use glam::*;
+use log::*;
 use pollster::FutureExt;
-use std::{sync::Arc, ops::{DerefMut, Deref}, mem};
-use winit::window::Window;
-use zenit_utils::{ok, AnyResult};
+use zenit_proc::TupledContainerDerefs;
+use std::{
+    mem,
+    sync::Arc,
+};
 
 pub mod base;
 pub mod pipelines;
 
-pub struct RenderBuffers(pub Vec<wgpu::CommandBuffer>);
-
-impl Deref for RenderBuffers {
-    type Target = Vec<wgpu::CommandBuffer>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RenderBuffers {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+#[derive(TupledContainerDerefs)]
+pub struct RenderCommands(pub Vec<wgpu::CommandBuffer>);
 
 pub fn init(world: &mut World, schedule: &mut Schedule) {
+    schedule.add_system_to_stage(TopFrameStage::FrameStart, begin_frame_system);
+    schedule.add_system_to_stage(TopFrameStage::FrameFinish, finish_frame_system);
+
     let window = world
         .get_resource::<MainWindow>()
         .expect("main window not found")
         .0
         .clone();
-    
-    world.insert_resource(Renderer::new(window).expect("couldn't init the renderer"));
-    schedule.add_system_to_stage(TopFrameStage::RenderStart, begin_frame_system);
-    schedule.add_system_to_stage(TopFrameStage::RenderFinish, finish_frame_system);
+
+    let instance = wgpu::Instance::new(wgpu::Backends::all());
+    let surface = unsafe { instance.create_surface(&window) };
+
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        })
+        .block_on()
+        .expect("couldn't find a graphics device");
+
+    let adapter_info = adapter.get_info();
+    info!("Using {}", &adapter_info.name);
+
+    let (device, queue) = adapter
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                features: wgpu::Features::empty(),
+                limits: wgpu::Limits::downlevel_defaults(),
+            },
+            None,
+        )
+        .block_on()
+        .expect("couldn't init the graphics device");
+
+    let context = RenderContext {
+        device,
+        queue,
+        adapter_info,
+        adapter,
+    };
+
+    world.insert_resource(RenderCommands(vec![]));
+    world.insert_resource(BuiltinTextures::new(&context));
+    world.insert_resource(RenderWindow::new(&context, surface, window));
+    world.insert_resource(context);
 }
 
-pub fn begin_frame_system(mut renderer: ResMut<Renderer>) {
-    renderer.begin_frame();
+pub fn begin_frame_system(context: Res<RenderContext>, mut main_window: ResMut<RenderWindow>) {
+    main_window.begin_frame(&context);
 }
 
 pub fn finish_frame_system(
-    mut buffers: ResMut<RenderBuffers>,
-    mut renderer: ResMut<Renderer>,
+    context: Res<RenderContext>,
+    mut main_window: ResMut<RenderWindow>,
+    mut buffers: ResMut<RenderCommands>,
 ) {
-    renderer.finish_frame(mem::take(&mut buffers)).unwrap();
-}
-
-pub struct Renderer {
-    pub context: Arc<RenderContext>,
-    pub main_window: RenderWindow,
-    pub builtin_textures: BuiltinTextures,
-}
-
-impl Renderer {
-    pub fn new(window: Arc<Window>) -> AnyResult<Self> {
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(&window) };
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: Some(&surface),
-            })
-            .block_on()
-            .ok_or(anyhow!("Couldn't find a graphics device"))?;
-
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::downlevel_defaults(),
-                },
-                None,
-            )
-            .block_on()?;
-
-        let context = Arc::new(RenderContext {
-            device,
-            queue,
-            adapter_info: adapter.get_info(),
-            adapter,
-        });
-
-        Ok(Self {
-            main_window: RenderWindow::new(&context, surface, window),
-            builtin_textures: BuiltinTextures::new(&context),
-            context,
-        })
-    }
-
-    pub fn begin_frame(&mut self) {
-        self.main_window.begin_frame(&self.context);
-    }
-
-    pub fn finish_frame(&mut self, buffers: Vec<wgpu::CommandBuffer>) -> AnyResult {
-        assert!(
-            !buffers.is_empty(),
-            "You need to submit at least one command buffer"
-        );
-
-        self.context.queue.submit(buffers);
-        self.main_window.finish_frame();
-
-        ok()
-    }
+    assert!(!buffers.is_empty(), "cannot submit no graphics commands");
+    context.queue.submit(mem::take(&mut buffers.0));
+    main_window.finish_frame();
 }
 
 pub struct BuiltinTextures {
+    /// Used as a default for non-existent textures.
+    /// Visually it looks like the Source engine magenta-black checker pattern
     pub not_found: Arc<Texture2D>,
+    /// Used for textures that exist, but cannot be loaded for some reason.
+    /// Visually it's a red-black checker pattern.
     pub corrupted: Arc<Texture2D>,
 }
 

@@ -1,9 +1,16 @@
-use super::{CtResponse, CtWidget};
-use crate::engine::{Engine, FrameInfo};
+use std::sync::Mutex;
 
+use bevy_ecs::prelude::*;
+
+use crate::schedule::TopFrameStage;
+
+pub fn init(_world: &mut World, schedule: &mut Schedule) {
+    schedule.add_system_to_stage(TopFrameStage::ControlPanel, message_box);
+}
+
+#[derive(Component)]
 pub struct MessageBox {
     pub id: egui::Id,
-    pub visible: bool,
     pub title: String,
     pub message: String,
 }
@@ -15,7 +22,6 @@ impl MessageBox {
     pub fn info(title: &str, message: &str) -> Self {
         Self {
             id: egui::Id::new(zenit_utils::counter::next()),
-            visible: true,
             title: title.to_string(),
             message: message.to_string(),
         }
@@ -30,31 +36,27 @@ impl MessageBox {
     }
 }
 
-impl CtWidget for MessageBox {
-    fn show(&mut self, ctx: &egui::Context, _: &FrameInfo, _: &mut Engine) -> CtResponse {
+pub fn message_box(
+    mut commands: Commands,
+    mut boxes: Query<(Entity, &MessageBox)>,
+    ctx: Res<Mutex<egui::Context>>,
+) {
+    let ctx = ctx.lock().unwrap();
+    for (entity, mbox) in boxes.iter_mut() {
+        let mut opened = true;
         let mut ok_pressed = false;
-        egui::Window::new(&self.title)
-            .id(self.id)
+        egui::Window::new(&mbox.title)
+            .id(mbox.id)
             .resizable(false)
-            .open(&mut self.visible)
-            .show(ctx, |ui| {
-                ui.label(&self.message);
+            .open(&mut opened)
+            .show(&ctx, |ui| {
+                ui.label(&mbox.message);
                 ui.separator();
                 ok_pressed = ui.button("OK").clicked();
             });
 
-        if ok_pressed {
-            self.visible = false;
+        if ok_pressed || !opened {
+            commands.entity(entity).despawn();
         }
-
-        CtResponse::default()
-    }
-
-    fn is_unique(&self) -> bool {
-        false
-    }
-
-    fn should_be_retained(&self) -> bool {
-        self.visible
     }
 }

@@ -1,5 +1,7 @@
 //! Various utilities used by the various code
 
+// TODO: clean it up a little (move functions around instead of putting most stuff into the root)
+
 use byteorder::{NativeEndian, WriteBytesExt};
 use std::io::Cursor;
 use std::mem;

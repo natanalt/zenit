@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use glam::UVec2;
 use log::*;
+use std::sync::Arc;
 use winit::window::Window;
 
 use super::RenderContext;
@@ -20,11 +20,7 @@ pub struct CurrentFrame {
 
 impl RenderWindow {
     /// Initializes all wgpu state for given window
-    pub fn new(
-        context: &RenderContext,
-        surface: wgpu::Surface,
-        winit_window: Arc<Window>,
-    ) -> Self {
+    pub fn new(context: &RenderContext, surface: wgpu::Surface, winit_window: Arc<Window>) -> Self {
         let surface_format = surface.get_preferred_format(&context.adapter).unwrap();
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -45,7 +41,7 @@ impl RenderWindow {
     }
 
     /// Begins a frame by fetching next image from the surface
-    /// 
+    ///
     /// ## Panics
     /// Panics if a previous frame wasn't properly shut down using `finish_frame`,
     /// or if wgpu reports an out of memory error.
@@ -53,8 +49,7 @@ impl RenderWindow {
         assert!(self.current.is_none(), "Previous frame wasn't finished");
 
         let frame = match self.surface.get_current_texture() {
-            Err(wgpu::SurfaceError::Lost) |
-            Err(wgpu::SurfaceError::Outdated) => {
+            Err(wgpu::SurfaceError::Lost) | Err(wgpu::SurfaceError::Outdated) => {
                 self.reconfigure(
                     &context.device,
                     UVec2::new(
@@ -82,7 +77,7 @@ impl RenderWindow {
     }
 
     /// Finishes the current frame by presenting it.
-    /// 
+    ///
     /// ## Panics
     /// Panics if no frame is currently being processed
     pub fn finish_frame(&mut self) {
@@ -91,6 +86,16 @@ impl RenderWindow {
             .expect("Trying to present an unstarted frame")
             .frame
             .present();
+    }
+
+    pub fn on_resize(&mut self, device: &wgpu::Device) {
+        self.reconfigure(
+            device,
+            UVec2::new(
+                self.winit_window.inner_size().width,
+                self.winit_window.inner_size().height,
+            ),
+        );
     }
 
     /// Reconfigures the surface to use a new size
