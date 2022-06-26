@@ -1,7 +1,8 @@
-use crate::{render::base::RenderContext, schedule::TopFrameStage, profiling::FrameProfiler};
+use std::time::Duration;
+
 use super::ext::EguiUiExtensions;
+use crate::{profiling::FrameProfiler, render::base::RenderContext, schedule::TopFrameStage};
 use bevy_ecs::prelude::*;
-use std::sync::Mutex;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {
     schedule.add_system_to_stage(TopFrameStage::ControlPanel, side_view);
@@ -10,10 +11,8 @@ pub fn init(_world: &mut World, schedule: &mut Schedule) {
 pub fn side_view(
     mut profiler: ResMut<FrameProfiler>,
     context: Res<RenderContext>,
-    ctx: Res<Mutex<egui::Context>>,
+    ctx: ResMut<egui::Context>,
 ) {
-    let ctx = ctx.lock().unwrap();
-
     egui::SidePanel::left("left_panel")
         .default_width(250.0)
         .resizable(true)
@@ -48,8 +47,31 @@ pub fn side_view(
             egui::CollapsingHeader::new("Frame times")
                 .default_open(true)
                 .show(ui, |ui| {
-                    ui.label(format!("{} FPS", profiler.fps));
-                    ui.add_space(5.0);                    
+                    egui::Grid::new("framerate_grid").show(ui, |ui| {
+                        ui.label("Framerate");
+                        ui.e_faint_label(format!("{} FPS", profiler.fps));
+                        ui.end_row();
+
+                        let avg_frame_time = Duration::from_secs_f32(1.0 / profiler.fps as f32);
+                        ui.label("Frame time");
+                        ui.e_faint_label(format!("{:?}", avg_frame_time))
+                            .on_hover_text("(Average from the last second)");
+                        ui.end_row();
+                    });
+
+                    ui.add_space(5.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label("Frame graph");
+                        ui.e_faint_label(format!("(Target FPS: {})", profiler.target_fps));
+                    });
+
+                    egui::Frame::dark_canvas(&ctx.style()).show(ui, |ui| {
+                        ui.allocate_at_least(
+                            egui::vec2(ui.available_size().x, 100.0),
+                            egui::Sense::click_and_drag(),
+                        );
+                    });
                 });
 
             ui.add_space(10.0);

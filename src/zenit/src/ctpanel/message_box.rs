@@ -1,7 +1,4 @@
-use std::sync::Mutex;
-
 use bevy_ecs::prelude::*;
-
 use crate::schedule::TopFrameStage;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {
@@ -39,9 +36,8 @@ impl MessageBox {
 pub fn message_box(
     mut commands: Commands,
     mut boxes: Query<(Entity, &MessageBox)>,
-    ctx: Res<Mutex<egui::Context>>,
+    ctx: ResMut<egui::Context>,
 ) {
-    let ctx = ctx.lock().unwrap();
     for (entity, mbox) in boxes.iter_mut() {
         let mut opened = true;
         let mut ok_pressed = false;

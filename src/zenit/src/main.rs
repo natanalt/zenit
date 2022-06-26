@@ -12,7 +12,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use clap::Parser;
 use log::*;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
@@ -101,8 +101,8 @@ pub fn main() -> ! {
                 // Hack no. 2
                 // This (in)conveniently stays here because of window events' lifetiming
                 let mut winit_state = world.remove_resource::<EguiWinitState>().unwrap();
-                let egui_context = world.get_resource::<Mutex<egui::Context>>().unwrap();
-                winit_state.on_event(&egui_context.lock().unwrap(), &event);
+                let egui_context = world.get_resource::<egui::Context>().unwrap();
+                winit_state.on_event(&egui_context, &event);
                 world.insert_resource(winit_state);
             }
         },

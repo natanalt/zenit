@@ -1,7 +1,6 @@
 use super::ext::EguiUiExtensions;
 use crate::schedule::TopFrameStage;
 use bevy_ecs::prelude::*;
-use std::sync::Mutex;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {
     schedule.add_system_to_stage(
@@ -10,8 +9,7 @@ pub fn init(_world: &mut World, schedule: &mut Schedule) {
     );
 }
 
-pub fn top_view(ctx: Res<Mutex<egui::Context>>) {
-    let ctx = ctx.lock().unwrap();
+pub fn top_view(ctx: ResMut<egui::Context>) {
     egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.label(format!("🚀 Zenit Engine {}", crate::VERSION))

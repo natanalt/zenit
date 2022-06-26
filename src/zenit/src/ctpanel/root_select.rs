@@ -1,7 +1,7 @@
 use super::{ext::{BevyCommandsExtensions, EguiUiExtensions}, Widget};
 use crate::{root::GameRoot, schedule::TopFrameStage};
 use bevy_ecs::prelude::*;
-use std::{path::PathBuf, sync::Mutex};
+use std::path::PathBuf;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {
     schedule.add_system_to_stage(TopFrameStage::ControlPanel, root_select);
@@ -21,7 +21,7 @@ pub struct RootSelectWindow {
 pub fn root_select(
     mut commands: Commands,
     mut query: Query<(Entity, &mut RootSelectWindow)>,
-    ctx: Res<Mutex<egui::Context>>,
+    ctx: ResMut<egui::Context>,
 ) {
     if query.is_empty() {
         return;
@@ -31,7 +31,6 @@ pub fn root_select(
         .get_single_mut()
         .expect("there can be only one game root window");
 
-    let ctx = ctx.lock().unwrap();
     egui::Window::new("Select Game Root")
         .resizable(false)
         .title_bar(false)

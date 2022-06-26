@@ -10,7 +10,6 @@ use crate::{
     schedule::TopFrameStage,
 };
 use bevy_ecs::prelude::*;
-use std::sync::Mutex;
 
 pub use egui_wgpu::renderer::RenderPass as EguiRenderPass;
 pub use egui_winit::State as EguiWinitState;
@@ -40,7 +39,7 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
     side::init(world, schedule);
     top::init(world, schedule);
 
-    world.init_resource::<Mutex<egui::Context>>();
+    world.init_resource::<egui::Context>();
 
     let context = world.get_resource::<RenderContext>().unwrap();
     let window = world.get_resource::<RenderWindow>().unwrap();
@@ -63,22 +62,21 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
 
 pub fn frame_start_system(
     mut winit_state: ResMut<EguiWinitState>,
-    egui_context: Res<Mutex<egui::Context>>,
+    egui_context: ResMut<egui::Context>,
     main_window: Res<MainWindow>,
 ) {
     let inputs = winit_state.take_egui_input(&main_window);
-    egui_context.lock().unwrap().begin_frame(inputs);
+    egui_context.begin_frame(inputs);
 }
 
 pub fn frame_end_system(
     mut commands: ResMut<RenderCommands>,
     mut egui_pass: NonSendMut<EguiRenderPass>,
-    egui_context: ResMut<Mutex<egui::Context>>,
+    egui_context: ResMut<egui::Context>,
     render_context: Res<RenderContext>,
     main_window: Res<MainWindow>,
     render_window: Res<RenderWindow>,
 ) {
-    let egui_context = egui_context.lock().unwrap();
     let full_output = egui_context.end_frame();
 
     let mut encoder =
