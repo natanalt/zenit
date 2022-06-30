@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use super::ext::EguiUiExtensions;
-use crate::{profiling::FrameProfiler, render::base::RenderContext, schedule::TopFrameStage};
+use crate::{profiling::{FrameProfiler, Delta}, render::base::RenderContext, schedule::TopFrameStage};
 use bevy_ecs::prelude::*;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {
@@ -10,6 +10,7 @@ pub fn init(_world: &mut World, schedule: &mut Schedule) {
 
 pub fn side_view(
     mut profiler: ResMut<FrameProfiler>,
+    delta: Res<Delta>,
     context: Res<RenderContext>,
     ctx: ResMut<egui::Context>,
 ) {
@@ -53,9 +54,16 @@ pub fn side_view(
                         ui.end_row();
 
                         let avg_frame_time = Duration::from_secs_f32(1.0 / profiler.fps as f32);
-                        ui.label("Frame time");
+                        ui.label("Average frame time");
                         ui.e_faint_label(format!("{:?}", avg_frame_time))
                             .on_hover_text("(Average from the last second)");
+                        ui.end_row();
+
+                        ui.label("Last frame time");
+                        ui.e_faint_label(format!("{:?}", delta.0));
+                        if delta.0 > profiler.max_frame_time() {
+                            ui.colored_label(egui::Color32::RED, "!");
+                        }
                         ui.end_row();
                     });
 
@@ -67,9 +75,17 @@ pub fn side_view(
                     });
 
                     egui::Frame::dark_canvas(&ctx.style()).show(ui, |ui| {
-                        ui.allocate_at_least(
-                            egui::vec2(ui.available_size().x, 100.0),
-                            egui::Sense::click_and_drag(),
+                        use super::utils::graph::*;
+                        render_graph(
+                            ui,
+                            RenderGraphInfo {
+                                max: 1.0 / profiler.target_fps as f32,
+                                height: 100.0,
+                                under_color: egui::Color32::GREEN,
+                                over_color: egui::Color32::RED,
+                                direction: GraphDirection::RightToLeft,
+                            },
+                            profiler.frame_times.iter().map(Duration::as_secs_f32),
                         );
                     });
                 });

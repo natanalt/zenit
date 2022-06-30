@@ -1,3 +1,6 @@
+//! BF2 game root specification window that appears when Zenit doesn't know
+//! where the game root directory is.
+
 use super::{ext::{BevyCommandsExtensions, EguiUiExtensions}, Widget};
 use crate::{root::GameRoot, schedule::TopFrameStage};
 use bevy_ecs::prelude::*;

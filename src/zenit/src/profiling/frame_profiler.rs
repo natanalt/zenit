@@ -52,7 +52,7 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
 
     schedule.add_system_to_stage(
         TopFrameStage::PostFrameFinish,
-        move |mut profiler: ResMut<FrameProfiler>| {
+        move |mut profiler: ResMut<FrameProfiler>, mut delta: ResMut<Delta>| {
             let frame_start = profiler
                 .frame_start
                 .take()
@@ -60,12 +60,13 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
             let frame_end = Instant::now();
             let frame_time = frame_end.duration_since(frame_start);
             profiler.push_frame(frame_time);
+            *delta = Delta(frame_time);
         },
     );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TupledContainerDerefs)]
-pub struct Delta(Duration);
+pub struct Delta(pub Duration);
 
 impl Into<f32> for Delta {
     #[inline]
@@ -118,6 +119,12 @@ impl FrameProfiler {
         self.frame_times.push_front(total);
     }
 
+    /// Calculates maximum duration for given target FPS
+    pub fn max_frame_time(&self) -> Duration {
+        Duration::from_secs_f32(1.0 / self.target_fps as f32)
+    }
+
+    /// Clears all tracked values to their default values
     pub fn reset(&mut self) {
         self.frame_times.clear();
         self.max_time = Duration::ZERO;

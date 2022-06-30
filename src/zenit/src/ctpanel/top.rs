@@ -1,4 +1,4 @@
-use super::ext::EguiUiExtensions;
+use super::{ext::EguiUiExtensions, texture_viewer::{TextureViewerWindow, TextureViewerBundle}};
 use crate::schedule::TopFrameStage;
 use bevy_ecs::prelude::*;
 
@@ -9,7 +9,11 @@ pub fn init(_world: &mut World, schedule: &mut Schedule) {
     );
 }
 
-pub fn top_view(ctx: ResMut<egui::Context>) {
+pub fn top_view(
+    mut commands: Commands,
+    texture_viewers: Query<&TextureViewerWindow>,
+    ctx: ResMut<egui::Context>,
+) {
     egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.label(format!("🚀 Zenit Engine {}", crate::VERSION))
@@ -47,8 +51,13 @@ pub fn top_view(ctx: ResMut<egui::Context>) {
             ui.label("Tools:");
 
             ui.menu_button("Resource Viewers...", |ui| {
-                if ui.button("Texture Viewer").clicked() {
-                    //response.make_widget::<TextureViewerWindow>();
+                let texture_viewer_button = ui.add_enabled(
+                    texture_viewers.is_empty(),
+                    egui::Button::new("Texture Viewer"),
+                );
+
+                if texture_viewer_button.clicked() {
+                    commands.spawn_bundle(TextureViewerBundle::default());
                     ui.close_menu();
                 }
             });

@@ -24,6 +24,7 @@ impl EguiUiExtensions for egui::Ui {
 }
 
 pub trait BevyCommandsExtensions {
+    // TODO: replace with bundles probably
     fn e_spawn_with(&mut self, c: impl Component) -> Entity;
     fn e_info_box(&mut self, title: &str, message: &str) -> Entity;
     fn e_warn_box(&mut self, title: &str, message: &str) -> Entity;

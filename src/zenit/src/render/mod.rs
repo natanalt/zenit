@@ -1,3 +1,14 @@
+//! Core of Zenit's very good:tm: renderer
+//! 
+//! ## Renderer, ECS, and you
+//! The renderer exposes several resources for use by systems:
+//!  * [`RenderCommands`] - a vector of wgpu command buffers, to be submitted
+//!    to the GPU at the frame's end
+//!  * [`BuiltinTextures`] - what the name suggests
+//!  * [`RenderWindow`] - main window's wgpu stuff
+//!  * [`RenderContext`] - gives access to [`wgpu::Device`], [`wgpu::Queue`] and more.
+//!    Doesn't have to be locked - can be use immutably.
+
 use self::base::{texture::Texture2D, RenderContext};
 use crate::{main_window::MainWindow, schedule::TopFrameStage};
 use base::surface::RenderWindow;

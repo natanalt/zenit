@@ -19,10 +19,13 @@ pub mod message_box;
 pub mod root_select;
 pub mod side;
 pub mod top;
-//pub mod texture_viewer;
+pub mod utils;
+pub mod texture_viewer;
 
 #[derive(Component, Default)]
 pub struct Widget;
+
+// TODO: figure out a way to simplify/deboilerplatify window creation (see root_select.rs or texture_viewer.rs)
 
 pub fn init(world: &mut World, schedule: &mut Schedule) {
     schedule.add_system_to_stage(
@@ -38,6 +41,7 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
     root_select::init(world, schedule);
     side::init(world, schedule);
     top::init(world, schedule);
+    texture_viewer::init(world, schedule);
 
     world.init_resource::<egui::Context>();
 

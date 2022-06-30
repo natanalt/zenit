@@ -3,6 +3,8 @@ use glam::*;
 use std::num::NonZeroU32;
 use zenit_proc::ext_repr;
 
+// TODO: texture compression?
+
 pub struct TextureSource {
     pub label: Option<String>,
     pub handle: wgpu::Texture,
