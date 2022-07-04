@@ -1,10 +1,8 @@
 use super::ext::EguiUiExtensions;
 use crate::{
     render::{
-        base::{
             texture::{Texture2D, TextureSource},
             RenderContext,
-        },
         RenderCommands,
     },
     schedule::TopFrameStage,
@@ -92,7 +90,7 @@ pub fn texture_viewer_render(
                                 entry_point: "main",
                                 targets: &[wgpu::TextureFormat::Rgba8Unorm.into()],
                             }),
-                            primitive: crate::render::base::utils::USUAL_PRIMITIVES,
+                            primitive: crate::render::utils::USUAL_PRIMITIVES,
                             depth_stencil: None,
                             multisample: wgpu::MultisampleState::default(),
                             multiview: None,

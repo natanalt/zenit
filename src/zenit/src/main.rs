@@ -6,7 +6,7 @@
 use crate::{
     ctpanel::{root_select::RootSelectWindowBundle, EguiWinitState},
     main_window::MainWindow,
-    render::base::{surface::RenderWindow, RenderContext},
+    render::{surface::RenderWindow, RenderContext},
     root::GameRoot,
 };
 use bevy_ecs::prelude::*;
@@ -72,9 +72,22 @@ pub fn main() -> ! {
     world.insert_resource(game_root);
     world.insert_resource(args);
 
-    profiling::frame_profiler::init(&mut world, &mut schedule);
-    render::init(&mut world, &mut schedule);
-    ctpanel::init(&mut world, &mut schedule);
+    let initializers = [
+        profiling::frame_profiler::init,
+
+        render::scene::init,
+        render::init,
+
+        ctpanel::message_box::init,
+        ctpanel::side::init,
+        ctpanel::top::init,
+        ctpanel::texture_viewer::init,
+        ctpanel::init,
+    ];
+
+    for initializer in initializers {
+        initializer(&mut world, &mut schedule);
+    }
 
     event_loop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {

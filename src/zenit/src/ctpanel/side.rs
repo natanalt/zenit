@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use super::ext::EguiUiExtensions;
-use crate::{profiling::{FrameProfiler, Delta}, render::base::RenderContext, schedule::TopFrameStage};
+use crate::{profiling::{FrameProfiler, Delta}, render::RenderContext, schedule::TopFrameStage};
 use bevy_ecs::prelude::*;
 
 pub fn init(_world: &mut World, schedule: &mut Schedule) {

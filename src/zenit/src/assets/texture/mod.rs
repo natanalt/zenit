@@ -1,5 +1,5 @@
 use self::convert::convert_texture;
-use crate::render::base::{
+use crate::render::{
     texture::{Texture2D, TextureSource},
     RenderContext,
 };

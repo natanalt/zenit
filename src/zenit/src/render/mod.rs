@@ -6,26 +6,38 @@
 //!    to the GPU at the frame's end
 //!  * [`BuiltinTextures`] - what the name suggests
 //!  * [`RenderWindow`] - main window's wgpu stuff
+//!  * [`PipelineStorage`] - stores pipelines
 //!  * [`RenderContext`] - gives access to [`wgpu::Device`], [`wgpu::Queue`] and more.
 //!    Doesn't have to be locked - can be use immutably.
 
-use self::base::{texture::Texture2D, RenderContext};
-use crate::{main_window::MainWindow, schedule::TopFrameStage};
-use base::surface::RenderWindow;
+use crate::{main_window::MainWindow, schedule::TopFrameStage, render::pipelines::PipelineStorage};
+use surface::RenderWindow;
 use bevy_ecs::prelude::*;
 use glam::*;
 use log::*;
 use pollster::FutureExt;
 use zenit_proc::TupledContainerDerefs;
-use std::{
-    mem,
-    sync::Arc,
-};
+use std::{mem, sync::Arc};
 
-pub mod base;
+use self::texture::Texture2D;
+
 pub mod pipelines;
+pub mod scene;
+pub mod shaders;
+pub mod surface;
+pub mod texture;
+pub mod utils;
+pub mod mipmaps;
 
-#[derive(TupledContainerDerefs)]
+/// Shared structure containing various wgpu drawing objects
+pub struct RenderContext {
+    pub device: wgpu::Device,
+    pub adapter: wgpu::Adapter,
+    pub adapter_info: wgpu::AdapterInfo,
+    pub queue: wgpu::Queue,
+}
+
+#[derive(Default, TupledContainerDerefs)]
 pub struct RenderCommands(pub Vec<wgpu::CommandBuffer>);
 
 pub fn init(world: &mut World, schedule: &mut Schedule) {
@@ -72,7 +84,8 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
         adapter,
     };
 
-    world.insert_resource(RenderCommands(vec![]));
+    world.init_resource::<RenderCommands>();
+    world.init_resource::<PipelineStorage>();
     world.insert_resource(BuiltinTextures::new(&context));
     world.insert_resource(RenderWindow::new(&context, surface, window));
     world.insert_resource(context);

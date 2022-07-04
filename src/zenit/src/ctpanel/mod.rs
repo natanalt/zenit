@@ -4,7 +4,7 @@ use crate::{
     main_window::MainWindow,
     render::{
         self,
-        base::{surface::RenderWindow, RenderContext},
+        surface::RenderWindow, RenderContext,
         RenderCommands,
     },
     schedule::TopFrameStage,
@@ -36,13 +36,7 @@ pub fn init(world: &mut World, schedule: &mut Schedule) {
         TopFrameStage::FrameFinish,
         frame_end_system.before(render::finish_frame_system),
     );
-
-    message_box::init(world, schedule);
-    root_select::init(world, schedule);
-    side::init(world, schedule);
-    top::init(world, schedule);
-    texture_viewer::init(world, schedule);
-
+    
     world.init_resource::<egui::Context>();
 
     let context = world.get_resource::<RenderContext>().unwrap();

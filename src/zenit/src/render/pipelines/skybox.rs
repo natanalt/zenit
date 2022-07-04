@@ -1,12 +1,12 @@
 use super::camera::CameraUniform;
 use crate::{
     include_shader,
-    render::base::{utils::USUAL_PRIMITIVES, RenderContext},
+    render::{utils::USUAL_PRIMITIVES, RenderContext},
     single_vertex_buffer,
 };
 use crevice::std140::AsStd140;
-use std::num::NonZeroU64;
 use wgpu::util::DeviceExt;
+use std::num::NonZeroU64;
 
 /// Skybox pipeline implements a simple skybox
 pub struct SkyboxPipeline {
