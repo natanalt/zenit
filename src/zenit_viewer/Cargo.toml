@@ -1,0 +1,16 @@
+[package]
+name = "zenit_viewer"
+version = "0.1.0"
+edition = "2021"
+description = "Data viewer for Star Wars Battlefront II (2005)"
+authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
+
+[dependencies]
+egui = "0.18.1"
+eframe = "0.18.0"
+anyhow = "1.0.57"
+thiserror = "1.0.31"
+byteorder = "1.4.3"
+log = "0.4.17"
+pretty_env_logger = "0.4.0"
+clap = { version = "3.1.18", features = ["derive"] }
