@@ -6,8 +6,7 @@ description = "Data viewer for Star Wars Battlefront II (2005)"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
-egui = "0.18.1"
-eframe = "0.18.0"
+gtk4 = "0.4.8"
 anyhow = "1.0.57"
 thiserror = "1.0.31"
 byteorder = "1.4.3"
