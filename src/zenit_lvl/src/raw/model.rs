@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use std::ffi::CString;
-use zenit_lvl_core::LazyData;
+use crate::LazyData;
 use zenit_proc::{ext_repr, FromNode, PackedParser};
 
 #[derive(Debug, Clone, FromNode)]
@@ -12,9 +12,9 @@ pub struct LevelModel {
     #[node("NODE")]
     pub node: CString,
     #[node("INFO")]
-    pub info: LevelModelInfo,
+    pub info: ModelInfo,
     #[nodes("segm")]
-    pub segments: Vec<LevelModelSegment>,
+    pub segments: Vec<ModelSegment>,
     #[node("SPHR")]
     pub sphere: LevelModelSphere,
 }
@@ -22,7 +22,7 @@ pub struct LevelModel {
 /// Proceed with caution, the layout may not be what it appears to be.
 /// Or maybe it's all correct, I have no clue
 #[derive(Debug, Clone, PackedParser)]
-pub struct LevelModelInfo {
+pub struct ModelInfo {
     pub unknown0x00: u32,
     pub unknown0x04: u32,
     pub unknown0x08: u32,
@@ -34,17 +34,17 @@ pub struct LevelModelInfo {
 }
 
 #[derive(Debug, Clone, FromNode)]
-pub struct LevelModelSegment {
+pub struct ModelSegment {
     #[node("INFO")]
-    pub info: LevelModelInfo,
+    pub info: ModelInfo,
     #[node("MTRL")]
-    pub material: LevelModelMaterial,
+    pub material: ModelMaterial,
     #[node("RTYP")]
     pub render_type: CString,
     #[nodes("TNAM")]
-    pub texture_names: [LevelModelTextureName; 4],
+    pub texture_names: [ModelTextureName; 4],
     #[node("BBOX")]
-    pub aabb: LevelModelSegmentAABB,
+    pub aabb: ModelSegmentAABB,
     #[node("IBUF")]
     pub index_buffer: LazyData<Vec<u8>>,
     #[nodes("VBUF")]
@@ -54,16 +54,16 @@ pub struct LevelModelSegment {
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct LevelModelSegmentInfo {
+pub struct ModelSegmentInfo {
     #[from(u32)]
-    pub topology: LevelModelSegmentTopology,
+    pub topology: ModelSegmentTopology,
     pub vertex_count: u32,
     pub primitive_count: u32,
 }
 
 #[ext_repr(u32)]
 #[derive(Debug, Clone, PartialEq)]
-pub enum LevelModelSegmentTopology {
+pub enum ModelSegmentTopology {
     PointList = 1,
     LineList = 2,
     LineStrip = 3,
@@ -73,9 +73,9 @@ pub enum LevelModelSegmentTopology {
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct LevelModelMaterial {
+pub struct ModelMaterial {
     #[from(u32)]
-    pub flags: LevelMaterialFlags,
+    pub flags: MaterialFlags,
     pub diffuse_color: [u8; 4],
     pub specular_color: [u8; 4],
     pub specular_exponent: u32,
@@ -84,7 +84,7 @@ pub struct LevelModelMaterial {
 }
 
 bitflags! {
-    pub struct LevelMaterialFlags: u32 {
+    pub struct MaterialFlags: u32 {
         const NORMAL = 1 << 0;
         const HARDEDGED = 1 << 1;
         const TRANSPARENT = 1 << 2;
@@ -104,20 +104,20 @@ bitflags! {
     }
 }
 
-impl From<u32> for LevelMaterialFlags {
+impl From<u32> for MaterialFlags {
     fn from(value: u32) -> Self {
         Self::from_bits_truncate(value)
     }
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct LevelModelTextureName {
+pub struct ModelTextureName {
     pub index: u32,
     pub name: CString,
 }
 
 #[derive(Debug, Clone, PackedParser)]
-pub struct LevelModelSegmentAABB {
+pub struct ModelSegmentAABB {
     pub min: [f32; 3],
     pub max: [f32; 3],
 }

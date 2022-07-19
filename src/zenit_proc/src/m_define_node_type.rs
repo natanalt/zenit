@@ -196,13 +196,20 @@ impl Structural {
             }
         });
 
+        let caller_crate = std::env::var("CARGO_PKG_NAME").unwrap();
+        let crate_token = if caller_crate == "zenit_lvl" {
+            quote!(crate)
+        } else {
+            quote!(::zenit_lvl)
+        };
+
         quote! {
-            impl ::zenit_lvl_core::node::FromNode for #name {
+            impl #crate_token ::node::FromNode for #name {
                 fn from_node<R: std::io::Read + std::io::Seek>(
-                    raw: ::zenit_lvl_core::node::LevelNode,
+                    raw: #crate_token ::node::LevelNode,
                     r: &mut R
                 ) -> zenit_utils::AnyResult<Self> {
-                    use ::zenit_lvl_core::node::*;
+                    use #crate_token ::node::*;
 
                     #(#variables)*
 

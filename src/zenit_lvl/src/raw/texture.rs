@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use zenit_lvl_core::LazyData;
+use crate::LazyData;
 use zenit_proc::{ext_repr, FromNode, PackedParser};
 use zenit_utils::string_as_u32;
 
@@ -57,9 +57,10 @@ pub enum LevelTextureFormatKind {
     // The formats are derived from texture formats supported by D3D9
     // All entries in this enum are ones I found to be used by texture munge
     // tools, despite Direct3D support waaaay more formats than that
-    /// Compressed texture
+
+    /// DXT1 (also known as BC1 in wgpu) compressed texture.
     DXT1 = string_as_u32("DXT1"),
-    /// Compressed texture
+    /// DXT3 (also known as BC2 in wgpu) compressed texture.
     DXT3 = string_as_u32("DXT3"),
     /// RGBA, u8 value per channel
     A8R8G8B8 = 0x15,
@@ -83,25 +84,26 @@ pub enum LevelTextureFormatKind {
 }
 
 impl LevelTextureFormatKind {
-    pub fn channel_count(self) -> Option<u32> {
+    pub fn channel_count(self) -> u32 {
         match self {
-            LevelTextureFormatKind::DXT1 => None,
-            LevelTextureFormatKind::DXT3 => None,
-            LevelTextureFormatKind::A8R8G8B8 => Some(4),
-            LevelTextureFormatKind::R5G6B5 => Some(3),
-            LevelTextureFormatKind::A1R5G5B5 => Some(4),
-            LevelTextureFormatKind::A4R4G4B4 => Some(4),
-            LevelTextureFormatKind::A8 => Some(1),
-            LevelTextureFormatKind::L8 => Some(1),
-            LevelTextureFormatKind::A8L8 => Some(2),
-            LevelTextureFormatKind::A4L4 => Some(2),
-            LevelTextureFormatKind::V8U8 => Some(2),
+            LevelTextureFormatKind::DXT1 => 4,
+            LevelTextureFormatKind::DXT3 => 4,
+            LevelTextureFormatKind::A8R8G8B8 => 4,
+            LevelTextureFormatKind::R5G6B5 => 3,
+            LevelTextureFormatKind::A1R5G5B5 => 4,
+            LevelTextureFormatKind::A4R4G4B4 => 4,
+            LevelTextureFormatKind::A8 => 1,
+            LevelTextureFormatKind::L8 => 1,
+            LevelTextureFormatKind::A8L8 => 2,
+            LevelTextureFormatKind::A4L4 => 2,
+            LevelTextureFormatKind::V8U8 => 2,
         }
     }
 
     pub fn is_compressed(self) -> bool {
         match self {
-            LevelTextureFormatKind::DXT1 | LevelTextureFormatKind::DXT3 => true,
+            LevelTextureFormatKind::DXT1
+            | LevelTextureFormatKind::DXT3 => true,
             LevelTextureFormatKind::A8R8G8B8
             | LevelTextureFormatKind::R5G6B5
             | LevelTextureFormatKind::A1R5G5B5

@@ -62,13 +62,23 @@ pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
         }
     });
 
+    // Check allowing the macros to emit types referencing zenit_lvl in every
+    // crate including zenit_lvl itself (where it has to be referred to with
+    // the crate keyword)
+    let caller_crate = std::env::var("CARGO_PKG_NAME").unwrap();
+    let crate_token = if caller_crate == "zenit_lvl" {
+        quote!(crate)
+    } else {
+        quote!(::zenit_lvl)
+    };
+
     Ok(quote! {
-        impl ::zenit_lvl_core::FromNode for #name {
+        impl #crate_token ::FromNode for #name {
             fn from_node<R: ::std::io::Read + ::std::io::Seek>(
-                _raw: ::zenit_lvl_core::LevelNode,
+                _raw: #crate_token ::LevelNode,
                 r: &mut R
             ) -> ::anyhow::Result<Self> {
-                use ::zenit_lvl_core::*;
+                use #crate_token ::*;
                 use ::anyhow::{anyhow, bail};
 
                 #(#variables)*
@@ -78,7 +88,7 @@ pub fn from_node_derive(input: DeriveInput) -> syn::Result<TokenStream2> {
                 for _child in _children {
                     #(#conditionals)* {
                         // Blank else branch
-                        // (conditionals always terminates with an else)
+                        // (conditionals always terminate with an else)
                     }
                 }
 
@@ -119,7 +129,9 @@ fn process_fields(d: &DataStruct) -> syn::Result<(Vec<NodeField>, bool)> {
 }
 
 enum NodeField {
+    /// Made by `#[node(...)]`
     Single(String, Ident, Type),
+    /// Made by `#[nodes(...)]`
     Many(String, Ident, Type),
 }
 

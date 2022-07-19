@@ -47,12 +47,12 @@ impl FromConfigValue for CString {
     // TODO: cleanup impl FromConfigValue for CString
     fn get(data: &ConfigData, idx: u32) -> Option<Self> {
         // To quote myself:
-        // "After everything, I came to the conclusion, that:
-        // for each string parameter, a u32 value is stored, that defines
-        // the offset to its contents in the DATA's tail at exactly
-        //     offset = buffer_start + the_value + 9
-        // I have absolutely no idea what that 9 does there, but it seems
-        // like a fairly common pattern among all DATA chunks I checked so far"
+        // > After everything, I came to the conclusion, that:
+        // > for each string parameter, a u32 value is stored, that defines
+        // > the offset to its contents in the DATA's tail at exactly
+        // >     offset = buffer_start + the_value + 9
+        // > I have absolutely no idea what that 9 does there, but it seems
+        // > like a fairly common pattern among all DATA chunks I checked so far
         // This may be incredibly incorrect.
         data.values
             .get(idx as usize)

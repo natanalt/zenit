@@ -6,9 +6,8 @@ description = "SWBF2 level file reader and writer"
 authors = ["Natalia Cholewa <natanalt@protonmail.com>"]
 
 [dependencies]
-zenit_proc = { path = "../zenit_proc", version = "*" }
-zenit_utils = { path = "../zenit_utils", version = "*" }
-zenit_lvl_core = { path = "../zenit_lvl_core", version = "*" }
+zenit_proc = { path = "../zenit_proc" }
+zenit_utils = { path = "../zenit_utils" }
 anyhow = "1.0.57"
 thiserror = "1.0.31"
 byteorder = "1.4.3"

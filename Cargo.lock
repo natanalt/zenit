@@ -3247,7 +3247,6 @@ dependencies = [
  "winit",
  "zenit_lua",
  "zenit_lvl",
- "zenit_lvl_core",
  "zenit_proc",
  "zenit_utils",
 ]
@@ -3272,18 +3271,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bitflags",
- "byteorder",
- "thiserror",
- "zenit_lvl_core",
- "zenit_proc",
- "zenit_utils",
-]
-
-[[package]]
-name = "zenit_lvl_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
  "byteorder",
  "thiserror",
  "zenit_proc",

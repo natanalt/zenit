@@ -24,7 +24,6 @@ crash-handler = []
 no-console = []
 
 [dependencies]
-zenit_lvl_core = { path = "../zenit_lvl_core" }
 zenit_lvl = { path = "../zenit_lvl" }
 zenit_proc = { path = "../zenit_proc" }
 zenit_lua = { path = "../zenit_lua" }
