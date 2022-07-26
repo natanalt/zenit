@@ -38,30 +38,11 @@ toml = "0.5.9"
 pollster = "0.2.5"
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive"] }
-bevy_ecs = "0.7.0"
 
 winit = "0.26.1"
 glam = "0.20.5"
 crevice = { version = "0.10.0", features = ["glam"] }
 wgpu = { version = "0.12.0", features = ["spirv"] }
-
-# *wait, what?*
-# Oh, yes! We're including Git versions of egui crates because:
-#  a) egui-wgpu is unusable at version 0.18.0 due to a lack of:
-#     * user textures,
-#     * draw callbacks,
-#     * any sort of custom draw integration whatso-fucking-ever
-#  b) egui-wgpu got those fixes in the git repo...
-#     ...across 2-4 weeks ago at the time of writing, which still
-#     wasn't released into crates.io
-# TODO: use proper egui dependencies once they are available.
-egui = { git = "https://github.com/emilk/egui" }
-egui-wgpu = { git = "https://github.com/emilk/egui" }
-egui-winit = { git = "https://github.com/emilk/egui" }
-
-#egui = "0.18.1"
-#egui-wgpu = "0.18.0"
-#egui-winit = "0.18.0"
 
 # Explicitly importing a newer version with alloc support, as it allows to pass
 # Arc<Window> as a valid window handle, instead of requiring ownership or

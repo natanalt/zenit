@@ -16,6 +16,8 @@ Requirements:
  * `glslc` and `spirv-link`
     * the build scripts look for them either in your PATH or in `$VULKAN_SDK/bin`
  * Patience
+ * A bunch more packages are needed for Linux builds, idk I'll update this someday
+ * Absolutely no idea if it works on macOS
 
 The usual workflow is:
  * `cargo build` to build the project
@@ -25,13 +27,12 @@ The usual workflow is:
 You can also look at automated unit test workflows in the [*.github/workflows*](.github/workflows) directory.
 
 ## Internal project structure
-The project is separated into multiple crates in the src directory:
- * **src/zenit_utils** - general utilities and shared code
- * **src/zenit_lua** - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
- * **src/zenit_lvl** - loader of BF2's level files, can be used as a standalone library
- * **src/zenit_lvl_core** - simple core of the level file reader, without any game-specific definitoins
- * **src/zenit_proc** - engine-wide proc macros
- * **src/zenit** - the main engine and the core of Zenit's codebase
+The project is separated into multiple crates in the [src](src/) directory:
+ * [**src/zenit**](src/zenit/) - the main engine and the core of Zenit's codebase
+ * [**src/zenit_lvl**](src/zenit_lvl/) - loader of BF2's level files, can be used as a standalone library
+ * [**src/zenit_lua**](src/zenit_lua/) - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
+ * [**src/zenit_utils**](src/zenit_utils/) - general utilities and shared code
+ * [**src/zenit_proc**](src/zenit_proc/) - engine-wide proc macros
 
 Stuff that's not currently there but may be added in the future:
  * **src/zenit_mdk** - mod development kit, aka. an executable for generating munge files 

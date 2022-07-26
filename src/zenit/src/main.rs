@@ -3,13 +3,7 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{
-    ctpanel::{root_select::RootSelectWindowBundle, EguiWinitState},
-    main_window::MainWindow,
-    render::{surface::RenderWindow, RenderContext},
-    root::GameRoot,
-};
-use bevy_ecs::prelude::*;
+use crate::root::GameRoot;
 use clap::Parser;
 use log::*;
 use std::sync::Arc;
@@ -18,15 +12,9 @@ use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 #[cfg(feature = "crash-handler")]
 pub mod crash;
 
-pub mod assets;
 pub mod cli;
-pub mod ctpanel;
-pub mod main_window;
 pub mod platform;
-pub mod profiling;
-pub mod render;
 pub mod root;
-pub mod schedule;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -58,48 +46,16 @@ pub fn main() -> ! {
             .expect("Couldn't create main window"),
     );
 
-    let mut world = World::new();
-    let mut schedule = schedule::create_top_scheduler();
-
     let game_root = GameRoot::new(args.game_root.as_ref());
     if game_root.is_invalid() {
-        world
-            .spawn()
-            .insert_bundle(RootSelectWindowBundle::default());
-    }
-
-    world.insert_resource(MainWindow(window.clone()));
-    world.insert_resource(game_root);
-    world.insert_resource(args);
-
-    let initializers = [
-        profiling::frame_profiler::init,
-
-        render::scene::init,
-        render::init,
-
-        ctpanel::message_box::init,
-        ctpanel::side::init,
-        ctpanel::top::init,
-        ctpanel::texture_viewer::init,
-        ctpanel::init,
-    ];
-
-    for initializer in initializers {
-        initializer(&mut world, &mut schedule);
+        // ... //
     }
 
     event_loop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
             WindowEvent::Resized(new_size) => {
                 if new_size.width != 0 && new_size.height != 0 {
-                    // It's a bit hacky, but it works
-                    let context = world.remove_resource::<RenderContext>().unwrap();
-                    world
-                        .get_resource_mut::<RenderWindow>()
-                        .unwrap()
-                        .on_resize(&context.device);
-                    world.insert_resource(context);
+                    // .. //
                 }
             }
             WindowEvent::CloseRequested => {
@@ -110,17 +66,10 @@ pub fn main() -> ! {
                 // actually shuts down in the background
                 window.set_visible(false);
             }
-            event => {
-                // Hack no. 2
-                // This (in)conveniently stays here because of window events' lifetiming
-                let mut winit_state = world.remove_resource::<EguiWinitState>().unwrap();
-                let egui_context = world.get_resource::<egui::Context>().unwrap();
-                winit_state.on_event(&egui_context, &event);
-                world.insert_resource(winit_state);
-            }
+            _ => {}
         },
         Event::MainEventsCleared => {
-            schedule.run(&mut world);
+            // ... //
         }
         _ => {}
     });
