@@ -8,6 +8,7 @@ mod m_ext_repr;
 mod m_from_node;
 mod m_packed_parser;
 mod m_tupled_container_derefs;
+mod m_derive_data;
 
 /// Implements the [`zenit_lvl::PackedParser`] trait on given type, if all of its fields also
 /// implement it.
@@ -109,6 +110,23 @@ pub fn ext_repr(input: TokenStream, source_item: TokenStream) -> TokenStream {
 #[proc_macro_derive(TupledContainerDerefs)]
 pub fn tupled_container_derefs(input: TokenStream) -> TokenStream {
     m_tupled_container_derefs::tupled_container_derefs(input)
+}
+
+/// Implements the `zenit::engine::Data` trait for given type. This type must
+/// implement [`Clone`].
+/// 
+/// ## Example
+/// ```ignore
+/// #[derive(Data)]
+/// struct ExampleStruct { value: u32 }
+/// 
+/// let value = ExampleStruct { value: 123u32 };
+/// let data: &dyn Data = &value;
+/// assert_eq!(data.read().value, 123u32);
+/// ```
+#[proc_macro_derive(Data)]
+pub fn derive_data(input: TokenStream) -> TokenStream {
+    m_derive_data::derive_data(input)
 }
 
 // This is kept in case it's ever useful again (likely not but whatevs)

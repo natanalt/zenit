@@ -3,7 +3,7 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::root::GameRoot;
+use crate::{root::GameRoot, engine::Engine, scene::SceneSystem};
 use clap::Parser;
 use log::*;
 use std::sync::Arc;
@@ -15,6 +15,8 @@ pub mod crash;
 pub mod cli;
 pub mod platform;
 pub mod root;
+pub mod scene;
+pub mod engine;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -32,26 +34,29 @@ pub fn main() -> ! {
 
     let args = cli::Args::parse();
 
-    info!("Welcome to Zenit Engine {}", VERSION);
+    info!("Welcome to Zenit Engine {VERSION}");
 
     #[cfg(feature = "crash-handler")]
     crash::enable_panic_handler();
 
-    let event_loop = EventLoop::new();
+    let eloop = EventLoop::new();
     let window = Arc::new(
         WindowBuilder::new()
             .with_title("Zenit Engine")
             .with_inner_size(LogicalSize::new(1280i32, 720i32))
-            .build(&event_loop)
+            .build(&eloop)
             .expect("Couldn't create main window"),
     );
 
-    let game_root = GameRoot::new(args.game_root.as_ref());
-    if game_root.is_invalid() {
-        // ... //
-    }
+    let engine = Engine::builder()
+        .make_system::<SceneSystem>()
+        //.with_data(args)
+        .build()
+        .start();
 
-    event_loop.run(move |event, _, flow| match event {
+    let game_root = GameRoot::new(args.game_root.as_ref());
+
+    eloop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
             WindowEvent::Resized(new_size) => {
                 if new_size.width != 0 && new_size.height != 0 {
