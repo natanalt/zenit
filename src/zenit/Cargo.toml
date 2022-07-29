@@ -42,7 +42,13 @@ clap = { version = "3.1.18", features = ["derive"] }
 winit = "0.26.1"
 glam = "0.20.5"
 crevice = { version = "0.10.0", features = ["glam"] }
-wgpu = { version = "0.12.0", features = ["spirv"] }
+
+wgpu = { version = "0.13", features = ["spirv"] }
+wgpu-hal = { version = "0.13", default-features = false, features = [
+    # For now, to make builds simpler, leave Vulkan support only
+    "vulkan",
+    "renderdoc"
+]}
 
 # Explicitly importing a newer version with alloc support, as it allows to pass
 # Arc<Window> as a valid window handle, instead of requiring ownership or

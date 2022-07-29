@@ -7,7 +7,7 @@ pub fn derive_data(input: TokenStream) -> TokenStream {
     let name = parsed.ident;
 
     quote! {
-        impl crate::engine::Data for #name {
+        impl crate::engine::data::Data for #name {
             type Storage = Self;
 
             fn read(&self) -> Self {

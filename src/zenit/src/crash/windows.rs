@@ -96,22 +96,22 @@ impl HandlerConfig {
     pub const fn compute_layout(&self, full_width: i32, full_height: i32) -> ComputedLayout {
         //
         // The layout is hardcoded, and basically looks like this:
-        // +--------------------------+
-        // | Zenit Crash         _  X |
-        // +--------------------------+
-        // | +----+ Header            |
-        // | |LOGO| Main text text aa |
-        // | |HERE| Main text text aa |
-        // | +----+                   |
-        // | +----------------------+ |
-        // | | Crash logs :(        | |
-        // | |                      | |
-        // | |                      | |
-        // | +----------------------+ |
-        // | Footer text is here      |
-        // |                          |
-        // |              [Copy] [OK] |
-        // +--------------------------+
+        // ┌──────────────────────────┐
+        // │ Zenit Crash         _  X │
+        // ├──────────────────────────┤
+        // │ ┌────┐ Header            │
+        // │ │ICON│ Main text text aa │
+        // │ │HERE│ Main text text aa │
+        // │ └────┘                   │
+        // │ ┌──────────────────────┐ │
+        // │ │ Crash logs :(        │ │
+        // │ │                      │ │
+        // │ │                      │ │
+        // │ └──────────────────────┘ │
+        // │ Footer text is here      │
+        // │                          │
+        // │              [Copy] [OK] │
+        // └──────────────────────────┘
         //
 
         let padding = self.padding;
@@ -213,7 +213,7 @@ macro_rules! verify_window_creation {
 static SHOULD_COPY: AtomicBool = AtomicBool::new(false);
 
 pub fn set_panic_hook() {
-    // Safety: it probably works
+    // Safety: maybe
     unsafe {
         InitCommonControls();
 
@@ -483,7 +483,7 @@ unsafe fn window_create_error() {
 unsafe fn wstring(source: &str) -> *mut u16 {
     OsString::from(source)
         .encode_wide()
-        .chain(iter::once(0))
+        .chain(iter::once(0)) // don't forget the null byte, C is annoying
         .collect::<Vec<u16>>()
         .leak()
         .as_mut_ptr()

@@ -48,14 +48,15 @@ pub fn main() -> ! {
             .expect("Couldn't create main window"),
     );
 
+    let game_root = GameRoot::new(args.game_root.as_ref());
+    
     let engine = Engine::builder()
         .make_system::<SceneSystem>()
-        //.with_data(args)
+        .with_data(Arc::new(args))
         .build()
-        .start();
+        .run();
 
-    let game_root = GameRoot::new(args.game_root.as_ref());
-
+    // The main thread gets hijacked as the windowing thread
     eloop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
             WindowEvent::Resized(new_size) => {

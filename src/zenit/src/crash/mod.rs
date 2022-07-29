@@ -1,5 +1,10 @@
 use std::panic::PanicInfo;
 
+// TODO: properly handle thread panics
+//       A thread panicking in Zenit is going to be bad™️ regardless of where
+//       it happens, but Rust's default behavior is that a panic only takes
+//       down the thread where said panic happened.
+
 #[cfg(target_os = "windows")]
 mod windows;
 

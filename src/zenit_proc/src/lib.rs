@@ -9,6 +9,7 @@ mod m_from_node;
 mod m_packed_parser;
 mod m_tupled_container_derefs;
 mod m_derive_data;
+mod m_has_system_interface;
 
 /// Implements the [`zenit_lvl::PackedParser`] trait on given type, if all of its fields also
 /// implement it.
@@ -127,6 +128,14 @@ pub fn tupled_container_derefs(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Data)]
 pub fn derive_data(input: TokenStream) -> TokenStream {
     m_derive_data::derive_data(input)
+}
+
+/// Creates a default `HasSystemInterface` instance, that is - no system
+/// interface, and to make the type system happy, the actual system interface
+/// type declared is `()`
+#[proc_macro_derive(HasSystemInterface)]
+pub fn derive_has_system_interface(input: TokenStream) -> TokenStream {
+    m_has_system_interface::derive_has_system_interface(input)
 }
 
 // This is kept in case it's ever useful again (likely not but whatevs)
