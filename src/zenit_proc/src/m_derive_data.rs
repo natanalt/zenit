@@ -10,8 +10,8 @@ pub fn derive_data(input: TokenStream) -> TokenStream {
         impl crate::engine::data::Data for #name {
             type Storage = Self;
 
-            fn read(&self) -> Self {
-                self.clone()
+            fn get_data(&self) -> &Self {
+                self
             }
         }
     }

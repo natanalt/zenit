@@ -1,8 +1,10 @@
 //! Engine core stuff
 
+use crate::engine::system::SystemContext;
+
 use self::{
     data::Data,
-    system::{HasSystemInterface, System, SystemContext},
+    system::{HasSystemInterface, System},
 };
 use log::*;
 use std::{
@@ -10,17 +12,27 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Barrier,
+        Barrier, RwLock,
     },
-    thread::{self, ScopedJoinHandle},
+    thread,
 };
 
 pub mod data;
 pub mod system;
 
+pub type TypeErasedSystemInterface = Box<dyn Any + Sync>;
+pub type SystemInterfaceTypeMap = HashMap<TypeId, TypeErasedSystemInterface>;
+pub type TypeErasedData = Box<dyn Any + Send + Sync>;
+pub type DataTypeMap = HashMap<TypeId, TypeErasedData>;
+
 /// Main engine controller.
 pub struct Engine {
-    systems: Vec<(Box<dyn System>, Box<dyn Any>)>,
+    /// All systems to be ran by the engine
+    systems: Vec<Box<dyn for<'a> System<'a>>>,
+    /// Type map holding instances of [`HasSystemInterface::SystemInterface`]
+    system_interfaces: SystemInterfaceTypeMap,
+    /// Type map holding instances of [`Data`]
+    data: DataTypeMap,
 }
 
 impl Engine {
@@ -30,47 +42,93 @@ impl Engine {
 
     /// Runs the engine in the current thread, until it exits.
     pub fn run(self) {
-        let Self { systems } = self;
+        let Self {
+            systems,
+            system_interfaces,
+            data,
+        } = self;
 
-        /// System state local to [`Engine::run`]
-        struct SystemInstance<'scope> {
-            /// See [`system::HasSystemInterface`] for details.
-            system_interface: Box<dyn Any>,
-            /// Join handle of the engine-controlled system thread.
-            thread_handle: ScopedJoinHandle<'scope, ()>,
-        }
+        let should_run = AtomicBool::new(false);
 
-        let should_run = AtomicBool::new(true);
+        let data = RwLock::new(data);
 
+        // A hidden barrier working more as an implementation detail
+        // Allows for runner synchronization and updating of fields like data
+        // based on system outputs
+        let begin_barrier = Barrier::new(systems.len());
+
+        // Behavior and usage of these barriers is documented somewhere in system.rs
         let frame_barrier = Barrier::new(systems.len());
         let post_frame_barrier = Barrier::new(systems.len());
 
         thread::scope(|scope| {
-            let mut instances = HashMap::with_capacity(systems.len());
-            for (mut system, system_interface) in systems {
+            for mut system in systems {
                 trace!("Creating `{}` system instance", system.name());
 
-                let system_context = SystemContext {
-                    frame_barrier: &frame_barrier,
-                    post_frame_barrier: &post_frame_barrier,
-                    should_run: &should_run,
-                };
+                // Passing references into a `move` closure requires binding
+                // them into variables. A bit annoying.
+                let thread_references = (
+                    &frame_barrier,
+                    &post_frame_barrier,
+                    &should_run,
+                    &system_interfaces,
+                    &begin_barrier,
+                    &data,
+                );
 
-                let tid = (&*system).type_id();
-                let instance = SystemInstance {
-                    system_interface,
-                    thread_handle: thread::Builder::new()
-                        .name(system.name().to_string())
-                        .spawn_scoped(scope, move || {
-                            while system_context.should_run.load(Ordering::SeqCst) {
-                                system.frame(system_context.clone());
+                thread::Builder::new()
+                    .name(system.name().to_string())
+                    .spawn_scoped(scope, move || {
+                        let (
+                            frame_barrier,
+                            post_frame_barrier,
+                            should_run,
+                            system_interfaces,
+                            begin_barrier,
+                            data_lock,
+                        ) = thread_references;
+
+                        let mut ran_init = false;
+                        let mut data_to_remove = vec![];
+                        let mut data_to_add = vec![];
+
+                        while should_run.load(Ordering::SeqCst) {
+                            {
+                                let mut data = data_lock.write().unwrap();
+
+                                for to_remove in data_to_remove.drain(0..) {
+                                    data.remove(&to_remove);
+                                }
+
+                                for (tid, value) in data_to_add.drain(0..) {
+                                    data.insert(tid, value);
+                                }
+
+                                begin_barrier.wait();
                             }
-                        })
-                        .expect("couldn't spawn system thread"),
-                };
 
-                instances.insert(tid, instance);
+                            let data = data_lock.read().unwrap();
+                            let system_context = SystemContext {
+                                frame_barrier,
+                                post_frame_barrier,
+                                should_run,
+                                system_interfaces,
+                                data: &data,
+                                data_to_remove: &mut data_to_remove,
+                                data_to_add: &mut data_to_add,
+                            };
+
+                            if !ran_init {
+                                system.init(&system_context);
+                                ran_init = true;
+                            }
+                            system.frame(&system_context);
+                        }
+                    })
+                    .expect("couldn't spawn system thread");
             }
+
+            should_run.store(true, Ordering::SeqCst);
         });
 
         info!("All systems have finished execution.");
@@ -80,19 +138,22 @@ impl Engine {
 /// It builds the engine. Very surprising, I know
 #[derive(Default)]
 pub struct EngineBuilder {
-    systems: Vec<(Box<dyn System>, Box<dyn Any>)>,
-    data: HashMap<TypeId, Box<dyn Any>>,
+    systems: Vec<Box<dyn for<'a> System<'a>>>,
+    system_interfaces: SystemInterfaceTypeMap,
+    data: DataTypeMap,
 }
 
 impl EngineBuilder {
     /// Creates and includes a [`System`] instance, if it implements [`Default`]
     pub fn make_system<S>(mut self) -> Self
     where
-        S: System + HasSystemInterface + Default,
+        S: for<'a> System<'a> + HasSystemInterface + Default,
     {
         let system = Box::new(S::default());
         let system_interface = Box::new(system.create_system_interface());
-        self.systems.push((system, system_interface));
+        self.systems.push(system);
+        self.system_interfaces
+            .insert(TypeId::of::<S::SystemInterface>(), system_interface);
         self
     }
 
@@ -117,6 +178,8 @@ impl EngineBuilder {
     pub fn build(self) -> Engine {
         Engine {
             systems: self.systems,
+            system_interfaces: self.system_interfaces,
+            data: self.data,
         }
     }
 }

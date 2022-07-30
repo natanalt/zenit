@@ -1,4 +1,5 @@
 use log::info;
+use zenit_proc::Data;
 use std::{
     fs::{self, File},
     io,
@@ -10,7 +11,7 @@ const INVALID_MARKER: &str = "/this/is/an/invalid/path/please/do/not/use";
 
 /// Game root contains an internal path that points to the `_lvl_pc` directory
 /// of the game.
-#[derive(Clone)]
+#[derive(Clone, Data)]
 pub struct GameRoot {
     /// Directory with the main game contents.
     pub main: PathBuf,

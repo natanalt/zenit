@@ -50,9 +50,10 @@ pub fn main() -> ! {
 
     let game_root = GameRoot::new(args.game_root.as_ref());
     
-    let engine = Engine::builder()
+    Engine::builder()
         .make_system::<SceneSystem>()
-        .with_data(Arc::new(args))
+        .with_data(args)
+        .with_data(game_root) // TODO: change to mutex or rwlock?
         .build()
         .run();
 

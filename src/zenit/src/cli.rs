@@ -1,8 +1,9 @@
 use clap::Parser;
+use zenit_proc::Data;
 use std::path::PathBuf;
 
 /// User-specified command line parameters
-#[derive(Parser)]
+#[derive(Debug, Parser, Data)]
 #[clap(name = "Zenit Engine", about)]
 pub struct Args {
     #[clap(
