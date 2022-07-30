@@ -1,10 +1,11 @@
-//! Systems, separated engine modules running on dedicated threads
+//! Systems - separated engine modules running on dedicated threads
 
 use super::{data::Data, DataTypeMap, SystemInterfaceTypeMap, TypeErasedData};
 use std::{
     any::{Any, TypeId},
     sync::{atomic::AtomicBool, Barrier},
 };
+use winit::event::WindowEvent;
 
 /// Implements an engine system.
 ///
@@ -43,20 +44,6 @@ pub trait HasSystemInterface: Any + Sync {
 
 /// Context passed to each system thread, which allows for communication with
 /// the engine.
-///
-/// ## Sync barriers
-/// The context includes 2 barriers: *frame barrier* and *post frame barrier*.
-/// They are meant to be awaited in a very specific order:
-/// ```text
-///               ↓ frame_barrier    ↓ post_frame_barrier
-/// ┌─────────────┬──────────────────┐
-/// │ Frame stuff │ Post frame stuff │
-/// └─────────────┴──────────────────┘
-/// ↑ frame start                    ↑ frame end
-/// ```
-/// Both barriers must be waited for during the system's frame callback. They
-/// must be awaited for in the specific order (frame -> post-frame), otherwise
-/// you'll get a deadlock.
 pub struct SystemContext<'ctx> {
     /// Barrier that synchronizes every frame's basic end, starting the post
     /// frame phase, allowing systems to do whatever late operations they need
@@ -75,6 +62,10 @@ pub struct SystemContext<'ctx> {
 
     /// All data available this frame
     pub data: &'ctx DataTypeMap,
+
+    /// All events caught this frame, with the exception of scale factor changes,
+    /// since `WindowEvent<'static>` is unable to really store them
+    pub events: &'ctx [WindowEvent<'static>],
 
     /// Data types to be removed after this frame. Only one system can remove
     /// and add systems at a time, otherwise you'll get a desync

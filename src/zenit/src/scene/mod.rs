@@ -19,7 +19,13 @@ impl<'ctx> System<'ctx> for SceneSystem {
         log::debug!("cli = {cli:#?}");
     }
 
-    fn frame(&mut self, _context: &SystemContext<'ctx>) {
-        
+    fn frame(&mut self, context: &SystemContext<'ctx>) {
+        //if context.events.len() > 0 {
+        //    log::debug!("got some events");
+        //    log::debug!("{:#?}", context.events[0]);
+        //}
+
+        context.frame_barrier.wait();
+        context.post_frame_barrier.wait();
     }
 }

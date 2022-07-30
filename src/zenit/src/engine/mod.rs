@@ -1,21 +1,22 @@
 //! Engine core stuff
 
-use crate::engine::system::SystemContext;
-
 use self::{
     data::Data,
     system::{HasSystemInterface, System},
 };
+use crate::engine::system::SystemContext;
 use log::*;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
+        mpsc::Receiver,
         Barrier, RwLock,
     },
     thread,
 };
+use winit::event::WindowEvent;
 
 pub mod data;
 pub mod system;
@@ -33,6 +34,7 @@ pub struct Engine {
     system_interfaces: SystemInterfaceTypeMap,
     /// Type map holding instances of [`Data`]
     data: DataTypeMap,
+    event_receiver: Receiver<WindowEvent<'static>>,
 }
 
 impl Engine {
@@ -46,20 +48,29 @@ impl Engine {
             systems,
             system_interfaces,
             data,
+            event_receiver,
         } = self;
 
-        let should_run = AtomicBool::new(false);
+        let data_lock = RwLock::new(data);
+        let events_lock = RwLock::new(Vec::with_capacity(32));
+        let should_run = AtomicBool::new(true);
 
-        let data = RwLock::new(data);
+        // Lifetime of an internal system loop cycle:
+        //  1. Frame beginning stage
+        //     - Internally functions as a non-scriptable implementation detail
+        //     - Engine controller spends this time collecting events, by asserting
+        //       write control over the events list.
+        //     - Systems internally flush out their data add/remove lists
+        //  2. Frame stage
+        //     - Programmable, normal frame processing
+        //  3. Post-frame stage
+        //     - Programmable, normal frame processing, but after a barrier,
+        //       in case some systems need to do something here.
 
-        // A hidden barrier working more as an implementation detail
-        // Allows for runner synchronization and updating of fields like data
-        // based on system outputs
-        let begin_barrier = Barrier::new(systems.len());
-
-        // Behavior and usage of these barriers is documented somewhere in system.rs
+        // The +1s are accounting for the engine controller
+        let begin_barrier = Barrier::new(systems.len() + 1);
         let frame_barrier = Barrier::new(systems.len());
-        let post_frame_barrier = Barrier::new(systems.len());
+        let post_frame_barrier = Barrier::new(systems.len() + 1);
 
         thread::scope(|scope| {
             for mut system in systems {
@@ -73,7 +84,8 @@ impl Engine {
                     &should_run,
                     &system_interfaces,
                     &begin_barrier,
-                    &data,
+                    &data_lock,
+                    &events_lock,
                 );
 
                 thread::Builder::new()
@@ -86,6 +98,7 @@ impl Engine {
                             system_interfaces,
                             begin_barrier,
                             data_lock,
+                            events_lock,
                         ) = thread_references;
 
                         let mut ran_init = false;
@@ -93,6 +106,7 @@ impl Engine {
                         let mut data_to_add = vec![];
 
                         while should_run.load(Ordering::SeqCst) {
+                            // Frame beginning stage
                             {
                                 let mut data = data_lock.write().unwrap();
 
@@ -106,7 +120,9 @@ impl Engine {
 
                                 begin_barrier.wait();
                             }
-
+                            
+                            // Frame & post-frame stages
+                            let events = events_lock.read().unwrap();
                             let data = data_lock.read().unwrap();
                             let system_context = SystemContext {
                                 frame_barrier,
@@ -116,6 +132,7 @@ impl Engine {
                                 data: &data,
                                 data_to_remove: &mut data_to_remove,
                                 data_to_add: &mut data_to_add,
+                                events: &events,
                             };
 
                             if !ran_init {
@@ -128,10 +145,39 @@ impl Engine {
                     .expect("couldn't spawn system thread");
             }
 
-            should_run.store(true, Ordering::SeqCst);
+            use std::time::{Duration, Instant};
+            let mut _fps = 123;
+            let mut frames_this_second = 0;
+            let mut second_counter = Duration::ZERO;
+
+            while should_run.load(Ordering::SeqCst) {
+                let frame_start = Instant::now();
+
+                let mut events = events_lock.write().unwrap();
+                events.clear();
+                while let Ok(event) = event_receiver.try_recv() {
+                    events.push(event);
+                }
+                drop(events);
+
+                begin_barrier.wait();
+                post_frame_barrier.wait();
+
+                let frame_end = Instant::now();
+                let frame_time = frame_end.duration_since(frame_start);
+                
+                frames_this_second += 1;
+                second_counter += frame_time;
+                if second_counter > Duration::from_secs(1) {
+                    second_counter = Duration::ZERO;
+                    _fps = frames_this_second;
+                    frames_this_second = 0;
+                    //trace!("New FPS - {fps}");
+                }
+            }
         });
 
-        info!("All systems have finished execution.");
+        info!("The engine has finished execution.");
     }
 }
 
@@ -141,6 +187,7 @@ pub struct EngineBuilder {
     systems: Vec<Box<dyn for<'a> System<'a>>>,
     system_interfaces: SystemInterfaceTypeMap,
     data: DataTypeMap,
+    event_receiver: Option<Receiver<WindowEvent<'static>>>,
 }
 
 impl EngineBuilder {
@@ -174,12 +221,18 @@ impl EngineBuilder {
         self.with_data(D::default())
     }
 
+    pub fn event_receiver(mut self, r: Receiver<WindowEvent<'static>>) -> Self {
+        self.event_receiver = Some(r);
+        self
+    }
+
     /// Finalizes the engine build
     pub fn build(self) -> Engine {
         Engine {
             systems: self.systems,
             system_interfaces: self.system_interfaces,
             data: self.data,
+            event_receiver: self.event_receiver.expect("no event receiver attached"),
         }
     }
 }

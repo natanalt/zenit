@@ -3,20 +3,23 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{root::GameRoot, engine::Engine, scene::SceneSystem};
+use crate::{engine::Engine, root::GameRoot, scene::SceneSystem};
 use clap::Parser;
 use log::*;
-use std::sync::Arc;
+use std::{
+    sync::{mpsc, Arc},
+    thread,
+};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
 pub mod crash;
 
 pub mod cli;
+pub mod engine;
 pub mod platform;
 pub mod root;
 pub mod scene;
-pub mod engine;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,22 +52,25 @@ pub fn main() -> ! {
     );
 
     let game_root = GameRoot::new(args.game_root.as_ref());
-    
-    Engine::builder()
-        .make_system::<SceneSystem>()
-        .with_data(args)
-        .with_data(game_root) // TODO: change to mutex or rwlock?
-        .build()
-        .run();
+
+    let (event_sender, event_receiver) = mpsc::channel();
+
+    thread::Builder::new()
+        .name("Engine Controller Thread".to_string())
+        .spawn(move || {
+            Engine::builder()
+                .event_receiver(event_receiver)
+                .make_system::<SceneSystem>()
+                .with_data(args)
+                .with_data(game_root) // TODO: change to mutex or rwlock?
+                .build()
+                .run()
+        })
+        .expect("couldn't spawn main engine thread");
 
     // The main thread gets hijacked as the windowing thread
     eloop.run(move |event, _, flow| match event {
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
-            WindowEvent::Resized(new_size) => {
-                if new_size.width != 0 && new_size.height != 0 {
-                    // .. //
-                }
-            }
             WindowEvent::CloseRequested => {
                 info!("Close requested");
                 *flow = ControlFlow::Exit;
@@ -73,7 +79,16 @@ pub fn main() -> ! {
                 // actually shuts down in the background
                 window.set_visible(false);
             }
-            _ => {}
+            WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
+                let _ = new_inner_size;
+                // TODO: handle scale factor changes explicitly
+                warn!("Scale factor changed to {scale_factor}, the engine doesn't handle this yet");
+            }
+            event => {
+                event_sender
+                    .send(event.to_static().unwrap())
+                    .expect("couldn't send event to engine");
+            }
         },
         Event::MainEventsCleared => {
             // ... //
