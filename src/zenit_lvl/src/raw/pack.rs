@@ -1,7 +1,7 @@
 use super::LevelData;
+use crate::{FromNode, LevelNode};
 use anyhow::bail;
 use std::io::{Read, Seek};
-use crate::{FromNode, LevelNode};
 use zenit_utils::AnyResult;
 
 /// Level data pack nodes are `lvl_` nodes present in certain level files

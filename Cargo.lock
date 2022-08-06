@@ -2139,7 +2139,6 @@ dependencies = [
  "toml",
  "vergen",
  "wgpu",
- "wgpu-hal",
  "which",
  "winapi",
  "winit",

@@ -1,5 +1,5 @@
-use std::ffi::CString;
 use crate::LazyData;
+use std::ffi::CString;
 use zenit_proc::FromNode;
 
 #[derive(Debug, Clone, FromNode)]

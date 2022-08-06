@@ -44,11 +44,6 @@ glam = "0.20.5"
 crevice = { version = "0.10.0", features = ["glam"] }
 
 wgpu = { version = "0.13", features = ["spirv"] }
-wgpu-hal = { version = "0.13", default-features = false, features = [
-    # For now, to make builds simpler, leave Vulkan support only
-    "vulkan",
-    "renderdoc"
-]}
 
 # Explicitly importing a newer version with alloc support, as it allows to pass
 # Arc<Window> as a valid window handle, instead of requiring ownership or

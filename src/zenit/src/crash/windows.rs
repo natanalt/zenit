@@ -23,12 +23,14 @@ use winapi::{
 compile_error!("Windows crash handler can only be compiled for Windows targets");
 
 // TODO: make the crash handler window resizable
+// TODO: make the crash handler also shutdown the whole engine, to not leave the user with a half-broken game
 
 const CONFIG: HandlerConfig = HandlerConfig {
     window_title: "Zenit Crash Handler",
 
     header_text: "here is a wacky randomized error message",
 
+    // TODO: make the crash report link into a clickable one
     main_text: "Zenit Engine has encountered an unexpected error, causing this\n\
     crash. It's most likely a bug. :(\n\
     \n\
@@ -437,6 +439,7 @@ pub fn set_panic_hook() {
         }
 
         old_hook(info);
+        std::process::abort();
     }));
 
     debug!("Panic handler has just been set");

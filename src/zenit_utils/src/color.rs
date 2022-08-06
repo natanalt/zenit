@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RG8 {
     pub r: u8,
@@ -8,14 +7,23 @@ pub struct RG8 {
 impl Into<RGB8> for RG8 {
     #[inline]
     fn into(self) -> RGB8 {
-        RGB8 { r: self.r, g: self.g, b: 0 }
+        RGB8 {
+            r: self.r,
+            g: self.g,
+            b: 0,
+        }
     }
 }
 
 impl Into<RGBA8> for RG8 {
     #[inline]
     fn into(self) -> RGBA8 {
-        RGBA8 { r: self.r, g: self.g, b: 0, a: 255 }
+        RGBA8 {
+            r: self.r,
+            g: self.g,
+            b: 0,
+            a: 255,
+        }
     }
 }
 
@@ -29,7 +37,12 @@ pub struct RGB8 {
 impl Into<RGBA8> for RGB8 {
     #[inline]
     fn into(self) -> RGBA8 {
-        RGBA8 { r: self.r, g: self.g, b: self.b, a: 255 }
+        RGBA8 {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: 255,
+        }
     }
 }
 

@@ -1,5 +1,5 @@
-use std::ffi::CString;
 use crate::LazyData;
+use std::ffi::CString;
 use zenit_proc::{ext_repr, FromNode, PackedParser};
 use zenit_utils::string_as_u32;
 
@@ -57,7 +57,6 @@ pub enum LevelTextureFormatKind {
     // The formats are derived from texture formats supported by D3D9
     // All entries in this enum are ones I found to be used by texture munge
     // tools, despite Direct3D support waaaay more formats than that
-
     /// DXT1 (also known as BC1 in wgpu) compressed texture.
     DXT1 = string_as_u32("DXT1"),
     /// DXT3 (also known as BC2 in wgpu) compressed texture.
@@ -102,8 +101,7 @@ impl LevelTextureFormatKind {
 
     pub fn is_compressed(self) -> bool {
         match self {
-            LevelTextureFormatKind::DXT1
-            | LevelTextureFormatKind::DXT3 => true,
+            LevelTextureFormatKind::DXT1 | LevelTextureFormatKind::DXT3 => true,
             LevelTextureFormatKind::A8R8G8B8
             | LevelTextureFormatKind::R5G6B5
             | LevelTextureFormatKind::A1R5G5B5

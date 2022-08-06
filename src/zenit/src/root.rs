@@ -1,10 +1,10 @@
 use log::info;
-use zenit_proc::Data;
 use std::{
     fs::{self, File},
     io,
     path::{Path, PathBuf},
 };
+use zenit_proc::Data;
 
 // oh yes
 const INVALID_MARKER: &str = "/this/is/an/invalid/path/please/do/not/use";

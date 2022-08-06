@@ -11,8 +11,8 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::Receiver,
-        Barrier, RwLock,
+        mpsc::{Receiver, Sender, self},
+        Barrier, RwLock, Arc,
     },
     thread,
 };
@@ -21,7 +21,12 @@ use winit::event::WindowEvent;
 pub mod data;
 pub mod system;
 
-pub type TypeErasedSystemInterface = Box<dyn Any + Sync>;
+// TODO: use better hashing algorithms for HashMaps
+//       A lot of HashMaps around here rely on integer keys, and since its usage
+//       is internal to the engine, it doesn't need protection against any
+//       attacks.
+
+pub type TypeErasedSystemInterface = Box<dyn Any + Send + Sync>;
 pub type SystemInterfaceTypeMap = HashMap<TypeId, TypeErasedSystemInterface>;
 pub type TypeErasedData = Box<dyn Any + Send + Sync>;
 pub type DataTypeMap = HashMap<TypeId, TypeErasedData>;
@@ -34,7 +39,14 @@ pub struct Engine {
     system_interfaces: SystemInterfaceTypeMap,
     /// Type map holding instances of [`Data`]
     data: DataTypeMap,
+    /// Event loop events go here
     event_receiver: Receiver<WindowEvent<'static>>,
+    /// Flag signifying whether the game loop should continue. Can be set to
+    /// false by the event loop or systems.
+    should_run: Arc<AtomicBool>,
+    /// Flag sighinfying whether the engine is still running. Accessible by
+    /// the event loop.
+    is_running: Arc<AtomicBool>,
 }
 
 impl Engine {
@@ -49,11 +61,12 @@ impl Engine {
             system_interfaces,
             data,
             event_receiver,
+            should_run,
+            is_running,
         } = self;
 
         let data_lock = RwLock::new(data);
         let events_lock = RwLock::new(Vec::with_capacity(32));
-        let should_run = AtomicBool::new(true);
 
         // Lifetime of an internal system loop cycle:
         //  1. Frame beginning stage
@@ -120,14 +133,14 @@ impl Engine {
 
                                 begin_barrier.wait();
                             }
-                            
+
                             // Frame & post-frame stages
                             let events = events_lock.read().unwrap();
                             let data = data_lock.read().unwrap();
-                            let system_context = SystemContext {
-                                frame_barrier,
-                                post_frame_barrier,
+                            let mut system_context = SystemContext {
                                 should_run,
+                                frame_barrier,
+                                frame_barrier_waited: false,
                                 system_interfaces,
                                 data: &data,
                                 data_to_remove: &mut data_to_remove,
@@ -136,20 +149,28 @@ impl Engine {
                             };
 
                             if !ran_init {
-                                system.init(&system_context);
+                                system.init(&mut system_context);
                                 ran_init = true;
                             }
-                            system.frame(&system_context);
+                            system.frame(&mut system_context);
+
+                            // Await any necessary barriers
+                            if !system_context.frame_barrier_waited {
+                                frame_barrier.wait();
+                            }
+                            post_frame_barrier.wait();
                         }
                     })
                     .expect("couldn't spawn system thread");
             }
 
+            // TODO: move frame profiling somewhere else
             use std::time::{Duration, Instant};
             let mut _fps = 123;
             let mut frames_this_second = 0;
             let mut second_counter = Duration::ZERO;
 
+            is_running.store(true, Ordering::SeqCst);
             while should_run.load(Ordering::SeqCst) {
                 let frame_start = Instant::now();
 
@@ -160,25 +181,35 @@ impl Engine {
                 }
                 drop(events);
 
+                // TODO: add freeze/deadlock checks
                 begin_barrier.wait();
                 post_frame_barrier.wait();
 
                 let frame_end = Instant::now();
                 let frame_time = frame_end.duration_since(frame_start);
-                
+
                 frames_this_second += 1;
                 second_counter += frame_time;
                 if second_counter > Duration::from_secs(1) {
                     second_counter = Duration::ZERO;
                     _fps = frames_this_second;
                     frames_this_second = 0;
-                    //trace!("New FPS - {fps}");
                 }
             }
+            is_running.store(false, Ordering::SeqCst);
         });
 
         info!("The engine has finished execution.");
     }
+}
+
+pub struct EngineCommunication {
+    /// Send channel for event loop's events
+    pub event_sender: Sender<WindowEvent<'static>>,
+    /// If true, next iteration of the game loop will process a new frame
+    pub should_run: Arc<AtomicBool>,
+    /// If true, the engine is still running.
+    pub is_running: Arc<AtomicBool>,
 }
 
 /// It builds the engine. Very surprising, I know
@@ -187,7 +218,6 @@ pub struct EngineBuilder {
     systems: Vec<Box<dyn for<'a> System<'a>>>,
     system_interfaces: SystemInterfaceTypeMap,
     data: DataTypeMap,
-    event_receiver: Option<Receiver<WindowEvent<'static>>>,
 }
 
 impl EngineBuilder {
@@ -221,18 +251,27 @@ impl EngineBuilder {
         self.with_data(D::default())
     }
 
-    pub fn event_receiver(mut self, r: Receiver<WindowEvent<'static>>) -> Self {
-        self.event_receiver = Some(r);
-        self
-    }
-
     /// Finalizes the engine build
-    pub fn build(self) -> Engine {
-        Engine {
+    pub fn build(self) -> (Engine, EngineCommunication) {
+        let (event_sender, event_receiver) = mpsc::channel();
+        let should_run = Arc::new(AtomicBool::new(true));
+        let is_running = Arc::new(AtomicBool::new(false));
+
+        let engine = Engine {
             systems: self.systems,
             system_interfaces: self.system_interfaces,
             data: self.data,
-            event_receiver: self.event_receiver.expect("no event receiver attached"),
-        }
+            event_receiver,
+            should_run: should_run.clone(),
+            is_running: is_running.clone(),
+        };
+
+        let comms = EngineCommunication {
+            event_sender,
+            should_run,
+            is_running,
+        };
+
+        (engine, comms)
     }
 }

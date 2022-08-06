@@ -1,6 +1,6 @@
+use crate::LazyData;
 use bitflags::bitflags;
 use std::ffi::CString;
-use crate::LazyData;
 use zenit_proc::{ext_repr, FromNode, PackedParser};
 
 #[derive(Debug, Clone, FromNode)]

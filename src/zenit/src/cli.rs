@@ -1,6 +1,6 @@
 use clap::Parser;
-use zenit_proc::Data;
 use std::path::PathBuf;
+use zenit_proc::Data;
 
 /// User-specified command line parameters
 #[derive(Debug, Parser, Data)]

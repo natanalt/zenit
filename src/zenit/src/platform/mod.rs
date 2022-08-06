@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 /// Tries to find an installation of SWBF2 somewhere on this computer, using
 /// platform specific methods.
-/// 
+///
 /// Returns `None` if none is found, or there's no search implementation for
 /// current platform.
 #[allow(unreachable_code)]
