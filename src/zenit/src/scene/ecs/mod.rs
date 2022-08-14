@@ -1,66 +1,60 @@
-use self::allocator::EntityAllocator;
-use std::sync::Arc;
+use self::{pool::{EntityLocation, EntityPool}, component::Components};
+use std::{cell::RefCell, num::NonZeroUsize, rc::Rc};
 
-mod allocator;
-
-/// Minimal capacity for various universe vectors
-const MIN_ENTITY_CAP: usize = 64;
+pub mod component;
+mod pool;
 
 // the name is trying to be special
 pub struct Universe {
-    allocator: EntityAllocator,
+    pool: RefCell<EntityPool>,
+    components: RefCell<Components>,
 }
 
 impl Universe {
     pub fn new() -> Self {
         Self {
-            allocator: EntityAllocator::new(),
+            pool: RefCell::new(EntityPool::new()),
+            components: RefCell::new(Components::new()),
+        }
+    }
+}
+
+/// Trait for universe functions for Rc<Universe>
+pub trait UniverseTrait {
+    fn allocate_entity(&self) -> Entity;
+    fn free_entity(&self, ent: Entity);
+}
+
+impl UniverseTrait for Rc<Universe> {
+    fn allocate_entity(&self) -> Entity {
+        let loc = self.pool.borrow_mut().allocate_entity();
+        Entity {
+            universe: self.clone(),
+            index: loc.index,
+            generation: loc.generation,
         }
     }
 
-    pub fn allocate_entity(&self) -> Entity {
-        todo!()
-        //self.allocator.allocate_entity().to_managed(universe)
-    }
-
-    pub fn free_entity(&self, entity: Entity) {
-        todo!()
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub struct UnmanagedEntity {
-    pub index: usize,
-    pub generation: usize,
-}
-
-impl UnmanagedEntity {
-    pub fn to_managed(self, universe: Arc<Universe>) -> Entity {
-        Entity::from_unmanaged(universe, self)
+    fn free_entity(&self, ent: Entity) {
+        self.pool.borrow_mut().free_entity(EntityLocation {
+            index: ent.index,
+            generation: ent.generation,
+        })
     }
 }
 
 #[derive(Clone)]
 pub struct Entity {
-    pub universe: Arc<Universe>,
+    pub universe: Rc<Universe>,
     pub index: usize,
-    pub generation: usize,
+    pub generation: NonZeroUsize,
 }
 
 impl Entity {
-    /// Assumes that given uni is valid, as there are no checks to prove it otherwise
-    pub fn from_unmanaged(universe: Arc<Universe>, ent: UnmanagedEntity) -> Self {
-        Self {
-            universe,
-            index: ent.index,
-            generation: ent.generation,
-        }
-    }
-}
-
-impl Into<UnmanagedEntity> for Entity {
-    fn into(self) -> UnmanagedEntity {
-        UnmanagedEntity {
+    /// Extracts the location out of this entity
+    #[inline]
+    pub fn location(&self) -> EntityLocation {
+        EntityLocation {
             index: self.index,
             generation: self.generation,
         }
@@ -71,8 +65,4 @@ impl PartialEq for Entity {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index && self.generation == other.generation
     }
-}
-
-pub trait Component {
-    fn process(&mut self, parent: &Entity);
 }
