@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
+// TODO: consider spreading the proc macros into different crates for different owner-crates (like zenit, zenit_lvl, etc.)
+
 pub(crate) mod utils;
 
 mod m_define_node_type;
@@ -136,6 +138,17 @@ pub fn derive_data(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(HasSystemInterface)]
 pub fn derive_has_system_interface(input: TokenStream) -> TokenStream {
     m_has_system_interface::derive_has_system_interface(input)
+}
+
+/// Equivalent to `impl crate::scene::ecs::Tag for T {}`. Not much besides that,
+/// really.
+#[proc_macro_derive(Tag)]
+pub fn derive_tag(input: TokenStream) -> TokenStream {
+    let parsed = syn::parse_macro_input!(input as syn::DeriveInput);
+    let name = parsed.ident;
+    quote::quote! {
+        impl crate::scene::ecs::Tag for #name {}
+    }.into()
 }
 
 // This is kept in case it's ever useful again (likely not but whatevs)

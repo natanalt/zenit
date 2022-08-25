@@ -38,6 +38,7 @@ toml = "0.5.9"
 pollster = "0.2.5"
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive"] }
+smallvec = "1.9.0"
 
 winit = "0.26.1"
 glam = "0.20.5"
