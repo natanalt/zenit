@@ -35,8 +35,11 @@ impl Entity {
     /// ## Panics
     /// Panics if the component is present and locked (for example when process
     /// is being called.)
-    pub fn add_component(&self, c: impl Component) {
-        todo!()
+    pub fn add_component<C: Component>(&self, c: C) {
+        self.0
+            .components
+            .borrow_mut()
+            .insert(TypeId::of::<C>(), HeldComponent::new(c));
     }
 
     /// Removes specified component from this entity. Does nothing if it doesn't
@@ -46,12 +49,12 @@ impl Entity {
     /// Panics if the component is present and locked (for example when process
     /// is being called.)
     pub fn remove_component<C: Component>(&self) {
-        todo!()
+        self.0.components.borrow_mut().remove(&TypeId::of::<C>());
     }
 
     /// Checks if specified component exists.
     pub fn has_component<C: Component>(&self) -> bool {
-        todo!()
+        self.0.components.borrow().contains_key(&TypeId::of::<C>())
     }
 
     /// Adds a component to this entity, using its [`Default`] implementation.
@@ -67,6 +70,8 @@ impl Entity {
     /// Attempts to lock immutable access to given component, returning with a
     /// [`ComponentBorrowError`] if not possible.
     pub fn try_get_component<C: Component>(&self) -> Result<cell::Ref<C>, ComponentBorrowError> {
+        // The implementation will involve an Rc backed RefCell
+        // yay.
         todo!()
     }
 
