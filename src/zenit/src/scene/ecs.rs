@@ -1,188 +1,247 @@
-//! Zenit's custom-built ECS
-//!
-//! It's singlethreaded with thread-local globals. The implementation will need
-//! reworking at some point. The usage will stay the same, at least.
+//! Zenit's custom-built, singlethreaded (because yes) ECS
 //!
 
 use smallvec::SmallVec;
 use std::{
     any::{Any, TypeId},
-    cell::{self, Cell, RefCell, UnsafeCell},
+    cell::{self, RefCell},
     collections::{HashMap, HashSet},
-    num::NonZeroUsize,
-    ops::{Deref, DerefMut},
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 use thiserror::Error;
 
-thread_local! {
-    static UNI: RefCell<Universe> = RefCell::new(Universe::new());
-}
+/// Reference-counted handle to an entity. Backed by an [`Rc`], it is very cheap
+/// to copy via [`Clone`], and is pointer-sized, with `Option<Entity>` size
+/// optimizations available.
+#[derive(Clone)]
+pub struct Entity(Rc<EntityData>);
 
-/// A universe is a container of entities.
-///
-/// Generally, you should only use the thread local universe, although it is
-/// possible to use custom ones - just keep in mind that [`Entity`] callbacks
-/// only work with that global universe.
-pub struct Universe {
-    entities: Vec<Option<Rc<EntityBox>>>,
-}
-
-#[derive(Debug, Clone, Copy, Error, PartialEq, Eq)]
-pub enum EntityValidationError {
-    #[error("invalid entity descriptor (index points to a nonexistent entity)")]
-    BadIndex,
-    #[error("invalid entity descriptor (bad generation; use after free?)")]
-    GenerationTooLow,
-    #[error("invalid entity descriptor (bad generation; above current)")]
-    GenerationTooHigh,
-}
-
-impl Universe {
-    /// Creates a blank universe
-    pub const fn new() -> Self {
-        Self { entities: vec![] }
+impl Eq for Entity {}
+impl PartialEq for Entity {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
     }
-
-    /// Creates a blank entity and returns its descriptor.
-    ///
-    /// ## Panics
-    /// Panics when the entity cannot be created. The most likely reason for
-    /// that could be OOM.
-    pub fn create_entity(&mut self) -> Entity {
-        todo!()
-    }
-
-    /// Destroys specified entity.
-    ///
-    /// ## Panics
-    /// If debug assertions are enabled, panics if the entity is invalid
-    pub fn destroy_entity(&mut self, entity: Entity) {
-        #[cfg(debug_assertions)]
-        self.validate_entity(entity)
-            .expect("attempted to destroy invalid entity");
-        todo!()
-    }
-
-    /// Validates whether given entity descriptor points to a valid entity.
-    #[inline]
-    pub fn validate_entity(&self, entity: Entity) -> Result<(), EntityValidationError> {
-        let ebox = self
-            .entities
-            .get(entity.index)
-            .ok_or(EntityValidationError::BadIndex)?
-            .as_ref()
-            .ok_or(EntityValidationError::BadIndex)?;
-
-        if entity.generation < ebox.generation {
-            Err(EntityValidationError::GenerationTooLow)
-        } else if entity.generation > ebox.generation {
-            Err(EntityValidationError::GenerationTooHigh)
-        } else {
-            Ok(()) // ur valid :3
-        }
-    }
-
-    fn get_entity_box(&self, entity: Entity) -> Result<Rc<EntityBox>, EntityValidationError> {
-        self.validate_entity(entity)?;
-        Ok(self
-            .entities
-            .get(entity.index)
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .clone())
-    }
-}
-
-/// A cheap entity descriptor. It contains two pointer-sized fields, an index
-/// to the entity, and its generation which is used to detect use-after-free
-/// entity descriptors.
-///
-/// Functions within this struct operate on the thread-local-global universe,
-/// for convenience.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Entity {
-    pub index: usize,
-    pub generation: NonZeroUsize,
-}
-
-#[derive(Debug, Clone, Copy, Error, PartialEq, Eq)]
-pub enum EntityBorrowError {
-    #[error("entity is mutably borrowed")]
-    AlreadyBorrowed,
-    #[error(transparent)]
-    ValidationError(#[from] EntityValidationError),
-}
-
-#[derive(Debug, Clone, Copy, Error, PartialEq, Eq)]
-pub enum MutEntityBorrowError {
-    #[error("entity is immutably borrowed")]
-    AlreadyBorrowed,
-    #[error(transparent)]
-    ValidationError(#[from] EntityValidationError),
 }
 
 impl Entity {
-    /// Creates a new entity, see [`Universe::create_entity`]
-    #[inline]
+    /// Creates a new blank entity.
     pub fn new() -> Self {
-        UNI.with(|unicell| unicell.borrow_mut().create_entity())
+        Self(Rc::new(EntityData::default()))
     }
 
-    /// Destroys this entity, invalidating this descriptor permanently.
-    pub fn destroy(self) {
-        UNI.with(|unicell| unicell.borrow_mut().destroy_entity(self));
-    }
-
-    /// Checks whether this descriptor points to a valid entity.
-    pub fn validate_descriptor(self) -> Result<(), EntityValidationError> {
-        UNI.with(|unicell| unicell.borrow().validate_entity(self))
-    }
-
-    /// Attempts to immutably borrow this entity.
-    pub fn try_borrow(self) -> Result<EntityBorrow, EntityBorrowError> {
-        UNI.with(|unicell| {
-            let universe = unicell.borrow();
-            let ebox = universe.get_entity_box(self)?;
-
-            let borrow =
-                EntityBorrow::try_borrow(ebox).ok_or(EntityBorrowError::AlreadyBorrowed)?;
-
-            Ok(borrow)
-        })
-    }
-
-    /// Attempts to immutably borrow this entity.
+    /// Adds a new component into this entity. If it already exists, it is
+    /// replaced.
     ///
     /// ## Panics
-    /// Panics if the entity cannot be borrowed, which may happen if the entity
-    /// is currently mutably borrowed somewhere else.
-    pub fn borrow(self) -> EntityBorrow {
-        self.try_borrow().expect("couldn't borrow entity")
+    /// Panics if the component is present and locked (for example when process
+    /// is being called.)
+    pub fn add_component(&self, c: impl Component) {
+        todo!()
     }
 
-    /// Attempts to mutably borrow this entity.
-    pub fn try_borrow_mut(self) -> Result<MutEntityBorrow, MutEntityBorrowError> {
-        UNI.with(|unicell| {
-            let universe = unicell.borrow();
-            let ebox = universe.get_entity_box(self)?;
-
-            let borrow =
-                MutEntityBorrow::try_borrow(ebox).ok_or(MutEntityBorrowError::AlreadyBorrowed)?;
-
-            Ok(borrow)
-        })
-    }
-
-    /// Attempts to mutably borrow this entity.
+    /// Removes specified component from this entity. Does nothing if it doesn't
+    /// already exist.
     ///
     /// ## Panics
-    /// Panics if the entity cannot be borrowed, which may happen if the entity
-    /// is currently borrowed somewhere else.
-    pub fn borrow_mut(self) -> MutEntityBorrow {
-        self.try_borrow_mut()
-            .expect("couldn't mutably borrow entity")
+    /// Panics if the component is present and locked (for example when process
+    /// is being called.)
+    pub fn remove_component<C: Component>(&self) {
+        todo!()
+    }
+
+    /// Checks if specified component exists.
+    pub fn has_component<C: Component>(&self) -> bool {
+        todo!()
+    }
+
+    /// Adds a component to this entity, using its [`Default`] implementation.
+    /// If it already exists, it will be overwritten.
+    ///
+    /// ## Panics
+    /// Panics if the component is present and locked (for example when process
+    /// is being called.)
+    pub fn make_component<C: Component + Default>(&self) {
+        self.add_component(C::default());
+    }
+
+    /// Attempts to lock immutable access to given component, returning with a
+    /// [`ComponentBorrowError`] if not possible.
+    pub fn try_get_component<C: Component>(&self) -> Result<cell::Ref<C>, ComponentBorrowError> {
+        todo!()
+    }
+
+    /// Attempts to lock immutable access to given component.
+    ///
+    /// ## Panics
+    /// Panics if the component cannot be borrowed.
+    pub fn get_component<C: Component>(&self) -> cell::Ref<C> {
+        self.try_get_component()
+            .expect("unable to borrow component")
+    }
+
+    /// Attempts to lock mutable access to given component, returning with a
+    /// [`ComponentBorrowError`] if not possible.
+    pub fn try_get_component_mut<C: Component>(
+        &self,
+    ) -> Result<cell::RefMut<C>, ComponentBorrowError> {
+        todo!()
+    }
+
+    /// Attempts to lock mutable access to given component.
+    ///
+    /// ## Panics
+    /// Panics if the component is already borrowed.
+    pub fn get_component_mut<C: Component>(&self) -> cell::RefMut<C> {
+        self.try_get_component_mut()
+            .expect("unable to borrow component")
+    }
+
+    /// Adds the tag to this entity. Returns the tag's previous state.
+    pub fn add_tag<T: Tag>(&self) -> bool {
+        self.0.tags.borrow_mut().insert(TypeId::of::<T>())
+    }
+
+    /// Removes the tag from this entity. Returns the tag's previous state.
+    pub fn remove_tag<T: Tag>(&self) -> bool {
+        self.0.tags.borrow_mut().remove(&TypeId::of::<T>())
+    }
+
+    /// Checks if the entity has specified tag.
+    pub fn has_tag<T: Tag>(&self) -> bool {
+        self.0.tags.borrow().contains(&TypeId::of::<T>())
+    }
+
+    /// Returns an iterator over this entity's children. For the lifetime of
+    /// this iterator, the child list becomes locked and unmodifiable.
+    ///
+    /// Multiple iterators may be alive at the same time.
+    ///
+    /// ## Panics
+    ///  * if the child list is already borrowed for some reason
+    pub fn iter_children<'a>(&'a self) -> impl Iterator<Item = Entity> + 'a {
+        struct ChildIterator<'a> {
+            borrow: cell::Ref<'a, SmallVec<[Entity; 5]>>,
+            index: usize,
+        }
+
+        impl<'a> Iterator for ChildIterator<'a> {
+            type Item = Entity;
+
+            #[inline]
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.borrow.len() {
+                    self.index += 1;
+                    Some(self.borrow[self.index - 1].clone())
+                } else {
+                    None
+                }
+            }
+        }
+
+        ChildIterator::<'a> {
+            borrow: self.0.children.borrow(),
+            index: 0,
+        }
+    }
+
+    /// Adds a new child to this entity.
+    ///
+    /// ## Panics
+    ///  * if the child has a parent
+    ///  * if the child list is locked (for example by `iter_children`)
+    pub fn add_child(&self, child: &Entity) {
+        let mut parent = child.0.parent.borrow_mut();
+        assert!(parent.is_none(), "the child must be an orphan");
+        *parent = Some(self.as_weak());
+        self.0.children.borrow_mut().push(child.clone());
+    }
+
+    /// Removes a child from this entity.
+    ///
+    /// ## Panics
+    ///  * if the child's parent isn't this entity
+    ///  * if the child list is locked (for example by `iter_children`)
+    pub fn remove_child(&self, child: &Entity) {
+        let mut parent = child.0.parent.borrow_mut();
+        assert!(
+            *parent == Some(self.as_weak()),
+            "this entity must be the child's parent"
+        );
+        *parent = None;
+        self.0.children.borrow_mut().retain(|other| child != other);
+    }
+
+    /// Calls the process callback of specified [`Component`]. This generally
+    /// should only be called by scene loop code.
+    ///
+    /// ## Panics
+    ///  * if the component doesn't exist
+    ///  * if the component cannot be mutably locked
+    pub fn call_process_for<C: Component>(&self) {
+        let components = self.0.components.borrow();
+        let held = components
+            .get(&TypeId::of::<C>())
+            .expect("component doesn't exist");
+        (held.call_process)(held.component.clone(), self.clone());
+    }
+
+    /// Returns the parent, if there's one.
+    ///
+    /// ## Storage details
+    /// Each entity stores a weak reference to a parent. If the parent is
+    /// deallocated, this function returns [`None`], without updating
+    /// the internal value.
+    pub fn parent(&self) -> Option<Entity> {
+        self.0
+            .parent
+            .borrow()
+            .clone()
+            .map(EntityWeak::upgrade)
+            .flatten()
+    }
+
+    /// Creates a new weak reference, consuming this one.
+    pub fn into_weak(self) -> EntityWeak {
+        self.into()
+    }
+
+    /// Creates a new weak reference without consuming this one.
+    pub fn as_weak(&self) -> EntityWeak {
+        self.clone().into()
+    }
+}
+
+impl Into<EntityWeak> for Entity {
+    fn into(self) -> EntityWeak {
+        EntityWeak(Rc::downgrade(&self.0))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Error, PartialEq, Eq)]
+pub enum ComponentBorrowError {
+    #[error("component not found")]
+    NotFound,
+    #[error("the component is already borrowed")]
+    AlreadyBorrowed,
+}
+
+/// Weak reference version of [`Entity`]. What else can be said, see docs of
+/// [`Weak`] for details.
+#[derive(Clone)]
+pub struct EntityWeak(Weak<EntityData>);
+
+impl Eq for EntityWeak {}
+impl PartialEq for EntityWeak {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.ptr_eq(&other.0)
+    }
+}
+
+impl EntityWeak {
+    /// Attempts to convert this weak reference to a strong one. Returns None
+    /// if the entity doesn't exist anymore, making this conversion impossible.
+    pub fn upgrade(self) -> Option<Entity> {
+        self.0.upgrade().map(|rc| Entity(rc))
     }
 }
 
@@ -195,15 +254,24 @@ impl Entity {
 //          indices at compile time
 //        - assigned said bit indices at runtime, which would probably be even slower
 //          than the current approach
-
 /// Marker trait for a tag. Tags aren't used for anything besides for their type
-/// IDs which are stored within entities.
+/// IDs which are stored within entities, cheap to query and modify.
 pub trait Tag: Any {}
 
-/// A component, attachable to an entity
+/// A component, attachable to an entity. Contains a process callback, called
+/// every frame.
 pub trait Component: Any {
-    /// Called every frame for every component
-    fn process(&mut self, _parent: MutEntityBorrow) {}
+    /// Called every frame for every component of every entity.
+    fn process(&mut self, _parent: Entity) {}
+}
+
+/// The internals of an entity, accessed by [`Entity`] functions.
+#[derive(Default)]
+pub struct EntityData {
+    parent: RefCell<Option<EntityWeak>>,
+    children: RefCell<SmallVec<[Entity; 5]>>,
+    components: RefCell<HashMap<TypeId, HeldComponent>>,
+    tags: RefCell<HashSet<TypeId>>,
 }
 
 struct HeldComponent {
@@ -216,16 +284,11 @@ struct HeldComponent {
     /// calls Component::process by downcasting it internally.
     ///
     /// Also it's Rc as a hack, see HeldComponent::call_process
-    call_process: fn(Rc<RefCell<dyn Any>>, MutEntityBorrow),
+    call_process: fn(Rc<RefCell<dyn Any>>, Entity),
 
     /// The component is held within an Rc to prevent borrow issues when calling
     /// process callbacks for each component. Consider this more of an
     /// implementation detail than anything else, or even a workaround/hack.
-    ///
-    // TODO: think of a better solution for this?
-    //       perhaps wrapping parent and children within dedicated cells and
-    //       only ever exposing entities immutably, allowing for a double
-    //       borrow?
     component: Rc<RefCell<dyn Any>>,
 }
 
@@ -241,259 +304,5 @@ impl HeldComponent {
             },
             component: Rc::new(RefCell::new(c)),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Error, PartialEq, Eq)]
-pub enum ComponentBorrowError {
-    #[error("component not found")]
-    NotFound,
-    #[error("the component is already borrowed")]
-    AlreadyBorrowed,
-}
-
-/// The internals of an entity, accessible via a borrow from the universe.
-pub struct EntityData {
-    location: Entity,
-    parent: Option<Entity>,
-    children: SmallVec<[Entity; 5]>,
-    components: HashMap<TypeId, HeldComponent>,
-    tags: HashSet<TypeId>,
-}
-
-impl EntityData {
-    /// Creates a new [`EntityData`] instance. Generally shouldn't be called.
-    pub fn new(location: Entity) -> Self {
-        Self {
-            location,
-            parent: None,
-            children: SmallVec::new(),
-            components: HashMap::new(),
-            tags: HashSet::new(),
-        }
-    }
-
-    /// Adds a specified tag to this entity. If it's already there, nothing
-    /// happens. Returns previous state of the tag.
-    pub fn add_tag<T: Tag>(&mut self) -> bool {
-        self.tags.insert(TypeId::of::<T>())
-    }
-
-    /// Removes specified tag from this entity. If it wasn't there, nothing
-    /// happens. Returns previous state of the tag.
-    pub fn remove_tag<T: Tag>(&mut self) -> bool {
-        self.tags.remove(&TypeId::of::<T>())
-    }
-
-    /// Returns whether this entity has a specified tag
-    pub fn has_tag<T: Tag>(&self) -> bool {
-        self.tags.contains(&TypeId::of::<T>())
-    }
-
-    /// Adds a specified component to this entity. If it already exists, it
-    /// will be overwritten.
-    pub fn add_component(&mut self, c: impl Component) {
-        self.components.insert(c.type_id(), HeldComponent::new(c));
-    }
-
-    /// Adds a component to this entity, using its [`Default`] implementation.
-    /// If it already exists, it will be overwritten.
-    pub fn make_component<C: Component + Default>(&mut self) {
-        self.add_component(C::default());
-    }
-
-    /// Attempts to lock immutable access to given component, returning with a
-    /// [`ComponentBorrowError`] if not possible.
-    pub fn try_get_component<C: Component>(&self) -> Result<cell::Ref<C>, ComponentBorrowError> {
-        let borrow = self
-            .components
-            .get(&TypeId::of::<C>())
-            .ok_or(ComponentBorrowError::NotFound)?
-            .component
-            .try_borrow()
-            .map_err(|_| ComponentBorrowError::AlreadyBorrowed)?;
-
-        Ok(cell::Ref::map(borrow, |value| {
-            value.downcast_ref().expect("invalid component type")
-        }))
-    }
-
-    /// Attempts to lock immutable access to given component.
-    ///
-    /// ## Panics
-    /// Panics if the component cannot be borrowed.
-    pub fn get_component<C: Component>(&self) -> cell::Ref<C> {
-        self.try_get_component()
-            .expect("unable to borrow component")
-    }
-
-    /// Attempts to lock mutable access to given component, returning with a
-    /// [`ComponentBorrowError`] if not possible.
-    pub fn try_get_component_mut<C: Component>(
-        &mut self,
-    ) -> Result<cell::RefMut<C>, ComponentBorrowError> {
-        let borrow = self
-            .components
-            .get(&TypeId::of::<C>())
-            .ok_or(ComponentBorrowError::NotFound)?
-            .component
-            .try_borrow_mut()
-            .map_err(|_| ComponentBorrowError::AlreadyBorrowed)?;
-
-        Ok(cell::RefMut::map(borrow, |value| {
-            value.downcast_mut().expect("invalid component type")
-        }))
-    }
-
-    /// Attempts to lock mutable access to given component.
-    ///
-    /// ## Panics
-    /// Panics if the component is already borrowed.
-    pub fn get_component_mut<C: Component>(&mut self) -> cell::RefMut<C> {
-        self.try_get_component_mut()
-            .expect("unable to borrow component")
-    }
-
-    /// Iterates this entity's children.
-    pub fn iter_children(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.children.iter().map(|e| *e)
-    }
-
-    /// Adds a child to this entity. The child must not have a parent.
-    ///
-    /// ## Panics
-    /// Panics if the child has a parent.
-    pub fn add_child(&mut self, entity: &mut MutEntityBorrow) {
-        assert!(entity.parent.is_none(), "the child must be an orphan");
-        entity.parent = Some(self.location);
-        self.children.push(entity.location);
-    }
-
-    /// Removes a child from this entity. Self must be a parent of passed
-    /// child entity.
-    ///
-    /// ## Panics
-    /// Panics if the self entity is the child's parent
-    pub fn remove_child(&mut self, entity: &mut MutEntityBorrow) {
-        assert!(
-            entity.parent == Some(self.location),
-            "the child's parent must be self entity"
-        );
-
-        entity.parent = None;
-        self.children.retain(|child| *child != entity.location);
-    }
-}
-
-struct EntityBox {
-    generation: NonZeroUsize,
-    data: UnsafeCell<EntityData>,
-    flag: Cell<i32>,
-}
-
-impl EntityBox {
-    #[inline]
-    pub fn is_idle(&self) -> bool {
-        self.flag.get() == 0
-    }
-
-    #[inline]
-    pub fn is_immutably_borrowed(&self) -> bool {
-        self.flag.get() > 0
-    }
-
-    #[inline]
-    pub fn is_mutably_borrowed(&self) -> bool {
-        self.flag.get() < 0
-    }
-
-    #[inline]
-    pub fn add_immutable_borrow(&self) {
-        debug_assert!(self.is_idle() || self.is_immutably_borrowed());
-        self.update_borrow(|flag| flag + 1);
-    }
-
-    #[inline]
-    pub fn remove_immutable_borrow(&self) {
-        debug_assert!(self.is_immutably_borrowed());
-        self.update_borrow(|flag| flag - 1);
-    }
-
-    #[inline]
-    pub fn add_mutable_borrow(&self) {
-        debug_assert!(self.is_idle());
-        self.update_borrow(|flag| flag - 1);
-    }
-
-    #[inline]
-    pub fn remove_mutable_borrow(&self) {
-        debug_assert!(self.is_mutably_borrowed());
-        self.update_borrow(|flag| flag + 1);
-    }
-
-    #[inline]
-    fn update_borrow(&self, f: impl FnOnce(i32) -> i32) {
-        self.flag.set(f(self.flag.get()));
-    }
-}
-
-pub struct EntityBorrow(Rc<EntityBox>);
-
-impl EntityBorrow {
-    fn try_borrow(ebox: Rc<EntityBox>) -> Option<Self> {
-        if ebox.is_idle() || ebox.is_mutably_borrowed() {
-            ebox.add_immutable_borrow();
-            Some(Self(ebox))
-        } else {
-            None
-        }
-    }
-}
-
-impl Deref for EntityBorrow {
-    type Target = EntityData;
-    fn deref(&self) -> &EntityData {
-        // Safety: aliasing rules preserved by EntityBorrow structs
-        unsafe { self.0.data.get().as_ref().unwrap() }
-    }
-}
-
-impl Drop for EntityBorrow {
-    fn drop(&mut self) {
-        self.0.remove_immutable_borrow();
-    }
-}
-
-pub struct MutEntityBorrow(Rc<EntityBox>);
-
-impl MutEntityBorrow {
-    fn try_borrow(ebox: Rc<EntityBox>) -> Option<Self> {
-        if ebox.is_idle() {
-            ebox.add_mutable_borrow();
-            Some(Self(ebox))
-        } else {
-            None
-        }
-    }
-}
-
-impl Deref for MutEntityBorrow {
-    type Target = EntityData;
-    fn deref(&self) -> &EntityData {
-        // Safety: aliasing rules preserved by EntityBorrow structs
-        unsafe { self.0.data.get().as_ref().unwrap() }
-    }
-}
-
-impl DerefMut for MutEntityBorrow {
-    fn deref_mut(&mut self) -> &mut EntityData {
-        // Safety: aliasing rules preserved by EntityBorrow structs
-        unsafe { self.0.data.get().as_mut().unwrap() }
-    }
-}
-
-impl Drop for MutEntityBorrow {
-    fn drop(&mut self) {
-        self.0.remove_mutable_borrow();
     }
 }

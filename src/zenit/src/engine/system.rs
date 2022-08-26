@@ -30,8 +30,6 @@ where
     fn init(&mut self, _context: &mut SystemContext<'ctx>) {}
 
     /// Runs the system through a frame, within its dedicated thread.
-    /// Note, that the system has to wait for appropriate barriers, see
-    /// [`SystemContext`] documentation for details.
     fn frame(&mut self, context: &mut SystemContext<'ctx>);
 }
 
