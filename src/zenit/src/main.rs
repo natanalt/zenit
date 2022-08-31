@@ -21,6 +21,7 @@ pub mod engine;
 pub mod platform;
 pub mod root;
 pub mod scene;
+pub mod render;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

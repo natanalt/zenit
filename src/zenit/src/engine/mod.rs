@@ -203,6 +203,12 @@ impl Engine {
     }
 }
 
+/// Communication between the main engine control thread and the main GUI event
+/// loop thread. Basically it's the way the GUI thread can:
+///  * Report new window and system events to the engine.
+///  * Report window closing done by the user, requiring immediate shutdown.
+///    Note, that when the window close button is pressed, the window is closed
+///    instantly.
 pub struct EngineCommunication {
     /// Send channel for event loop's events
     pub event_sender: Sender<WindowEvent<'static>>,

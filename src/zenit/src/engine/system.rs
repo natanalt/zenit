@@ -17,7 +17,37 @@ use winit::event::WindowEvent;
 /// runs in a dedicated thread.
 ///
 /// Systems perform their work each frame and then wait for other systems
-/// to finish whatever they were doing using a provided [`Barrier`]
+/// to finish whatever they were doing using provided [`Barrier`] objects,
+/// see [`SystemContext`] for details.
+/// 
+/// The `'ctx` lifetime refers to all the control flags, barriers, lists, as
+/// passed to the systems via [`SystemContext`]. See the example below for
+/// a sample system implementation.
+/// 
+/// ## Example
+/// ```ignore
+/// 
+/// // The derive macro adds a `()` system trait implementation
+/// #[derive(HasSystemInterface)]
+/// struct ExampleSystem;
+/// 
+/// impl<'ctx> System<'ctx> for ExampleSystem {
+///     fn name(&self) -> &str {
+///         "Example System"
+///     }
+///     
+///     fn frame(&mut self, context: &mut SystemContext<'ctx>) {
+///         // Do frame stuff
+///         // ...
+/// 
+///         // And optionally you can do stuff in the post frame phase.
+///         // You don't have to do this, if this function isn't called,
+///         // the controller will do it for you.
+///         context.finish_frame_phase();
+///         // ...
+///     }
+/// }
+/// ```
 pub trait System<'ctx>
 where
     Self: Any + Send + Sync,
@@ -36,6 +66,8 @@ where
 /// Some systems, for example the renderer, implement a public interface. This
 /// trait can specify what kinda system interface this system implements.
 pub trait HasSystemInterface: Any + Send + Sync {
+    /// The system interface itself. It's exposed to other systems as an
+    /// immutable reference, hence its need to be [`Sync`].
     type SystemInterface: Any + Send + Sync;
     /// Creates the system interface. This function will only be called once
     /// on a single instance of this System. If it's ever called more than
@@ -98,7 +130,7 @@ impl<'ctx> SystemContext<'ctx> {
     /// Awaits finishing of frame phase, allowing to perform operations in the
     /// post-frame phase. Must be called only once. If a system doesn't call it,
     /// it'll be called automatically by the system controller.
-    pub fn finish_frame(&mut self) {
+    pub fn finish_frame_phase(&mut self) {
         debug_assert!(!self.frame_barrier_waited, "Cannot finish frame twice");
         self.frame_barrier.wait();
         self.frame_barrier_waited = true;

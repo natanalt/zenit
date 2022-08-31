@@ -9,7 +9,8 @@ use crate::{
 };
 use zenit_proc::HasSystemInterface;
 
-pub mod ecs;
+pub mod node;
+pub mod signal;
 
 #[derive(Default, HasSystemInterface)]
 pub struct SceneSystem;

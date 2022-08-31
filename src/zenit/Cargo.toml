@@ -34,6 +34,7 @@ thiserror = "1.0.31"
 byteorder = "1.4.3"
 log = "0.4.17"
 pretty_env_logger = "0.4.0" # TODO: write a custom log backend
+derive_builder = "0.11.2"
 toml = "0.5.9"
 pollster = "0.2.5"
 chrono = "0.4.19"

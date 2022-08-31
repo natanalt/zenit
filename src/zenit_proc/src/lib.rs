@@ -140,14 +140,14 @@ pub fn derive_has_system_interface(input: TokenStream) -> TokenStream {
     m_has_system_interface::derive_has_system_interface(input)
 }
 
-/// Equivalent to `impl crate::scene::ecs::Tag for T {}`. Not much besides that,
+/// Equivalent to `impl crate::scene::node::Tag for T {}`. Not much besides that,
 /// really.
 #[proc_macro_derive(Tag)]
 pub fn derive_tag(input: TokenStream) -> TokenStream {
     let parsed = syn::parse_macro_input!(input as syn::DeriveInput);
     let name = parsed.ident;
     quote::quote! {
-        impl crate::scene::ecs::Tag for #name {}
+        impl crate::scene::node::Tag for #name {}
     }.into()
 }
 
