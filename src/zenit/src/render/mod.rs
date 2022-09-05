@@ -14,9 +14,13 @@ use crate::engine::system::{System, HasSystemInterface, SystemContext};
 
 mod interface;
 pub use interface::RenderInterface;
+
 mod viewport;
 pub use viewport::Viewport;
 pub use viewport::ViewportCreationInfo;
+
+mod scenario;
+pub use scenario::Scenario;
 
 /// The render system itself. See module documentation for detaisl
 pub struct RenderSystem {
@@ -49,10 +53,7 @@ impl HasSystemInterface for RenderSystem {
 
     fn create_system_interface(&self) -> RenderInterface {
         debug_assert!(Arc::strong_count(&self.comms) <= 2, "comms duplicated?");
-
-        RenderInterface {
-            comms: self.comms.clone(),
-        }
+        RenderInterface(self.comms.clone())
     }
 }
 

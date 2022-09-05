@@ -7,13 +7,28 @@ use crate::{
     cli,
     engine::system::{System, SystemContext},
 };
+use std::{
+    cell::{RefCell, RefMut},
+    iter,
+    num::NonZeroUsize,
+};
+use thiserror::Error;
 use zenit_proc::HasSystemInterface;
+use zenit_utils::ThreadCell;
 
-pub mod node;
-pub mod signal;
+pub mod ecs;
 
-#[derive(Default, HasSystemInterface)]
-pub struct SceneSystem;
+#[derive(HasSystemInterface)]
+pub struct SceneSystem {
+    //root: ThreadCell<NodeRef<BlankNode>>,
+}
+
+impl Default for SceneSystem {
+    fn default() -> Self {
+        Self {}
+        //Self { root: ThreadCell::new(BlankNode::new()) }
+    }
+}
 
 impl<'ctx> System<'ctx> for SceneSystem {
     fn name(&self) -> &str {
@@ -26,9 +41,12 @@ impl<'ctx> System<'ctx> for SceneSystem {
     }
 
     fn frame(&mut self, _context: &mut SystemContext<'ctx>) {
-        //if context.events.len() > 0 {
-        //    log::debug!("got some events");
-        //    log::debug!("{:#?}", context.events[0]);
-        //}
+        //let mut root = self.root.get_mut().unwrap();
+        //root.borrow_imp().process(&root.0.)
+        todo!()
     }
+}
+
+pub struct SceneState {
+    
 }

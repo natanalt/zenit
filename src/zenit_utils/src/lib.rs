@@ -1,6 +1,6 @@
 //! Various utilities used by the various code
 
-// TODO: clean it up a little (move functions around instead of putting most stuff into the root)
+// TODO: clean up zenit_utils
 
 use byteorder::{NativeEndian, WriteBytesExt};
 use std::io::Cursor;
@@ -9,10 +9,17 @@ use std::mem;
 pub mod color;
 pub mod counter;
 pub mod packed;
+pub mod math;
 
 pub mod fnv1a;
 pub use fnv1a::fnv1a_hash;
 pub use fnv1a::Fnv1aHashExt;
+
+mod cell_ext;
+pub use cell_ext::RefCellExt;
+
+mod thread_cell;
+pub use thread_cell::ThreadCell;
 
 pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
