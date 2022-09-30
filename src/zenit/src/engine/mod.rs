@@ -1,35 +1,31 @@
 //! Engine core stuff
 
-use self::{
-    data::Data,
-    system::{HasSystemInterface, System},
-};
+use self::{builder::EngineBuilder, system::System};
 use crate::engine::system::SystemContext;
 use log::*;
+use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use std::{
     any::{Any, TypeId},
-    collections::HashMap,
+    iter,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, Sender, self},
-        Barrier, RwLock, Arc,
+        mpsc::Receiver,
+        Arc, Barrier, Mutex, RwLock,
     },
     thread,
+    time::{Duration, Instant},
 };
 use winit::event::WindowEvent;
+use zenit_utils::{MutexExt, RwLockExt};
 
-pub mod data;
+pub mod builder;
 pub mod system;
 
-// TODO: use better hashing algorithms for HashMaps
-//       A lot of HashMaps around here rely on integer keys, and since its usage
-//       is internal to the engine, it doesn't need protection against any
-//       attacks.
-
 pub type TypeErasedSystemInterface = Box<dyn Any + Send + Sync>;
-pub type SystemInterfaceTypeMap = HashMap<TypeId, TypeErasedSystemInterface>;
+pub type SystemInterfaceTypeMap = FxHashMap<TypeId, TypeErasedSystemInterface>;
 pub type TypeErasedData = Box<dyn Any + Send + Sync>;
-pub type DataTypeMap = HashMap<TypeId, TypeErasedData>;
+pub type DataTypeMap = FxHashMap<TypeId, TypeErasedData>;
 
 /// Main engine controller.
 pub struct Engine {
@@ -44,8 +40,10 @@ pub struct Engine {
     /// Flag signifying whether the game loop should continue. Can be set to
     /// false by the event loop or systems.
     should_run: Arc<AtomicBool>,
-    /// Flag sighinfying whether the engine is still running. Accessible by
-    /// the event loop.
+    /// Flag signifying whether the engine is still running. Accessible by
+    /// the event loop, to determine whether it's okay to shut down or not.
+    ///
+    /// The event loop shuts down once this flag is false.
     is_running: Arc<AtomicBool>,
 }
 
@@ -66,85 +64,58 @@ impl Engine {
         } = self;
 
         let data_lock = RwLock::new(data);
+        let data_to_remove = RwLock::new(vec![]);
+        let data_to_add = RwLock::new(vec![]);
+        // 32 is an arbitrary number, I doubt it will ever be reached tbh
         let events_lock = RwLock::new(Vec::with_capacity(32));
 
-        // Lifetime of an internal system loop cycle:
-        //  1. Frame beginning stage
-        //     - Internally functions as a non-scriptable implementation detail
-        //     - Engine controller spends this time collecting events, by asserting
-        //       write control over the events list.
-        //     - Systems internally flush out their data add/remove lists
-        //  2. Frame stage
-        //     - Programmable, normal frame processing
-        //  3. Post-frame stage
-        //     - Programmable, normal frame processing, but after a barrier,
-        //       in case some systems need to do something here.
-
-        // The +1s are accounting for the engine controller
-        let begin_barrier = Barrier::new(systems.len() + 1);
-        let frame_barrier = Barrier::new(systems.len());
-        let post_frame_barrier = Barrier::new(systems.len() + 1);
+        let stage_controller = TopLevelController::new(systems.len());
 
         thread::scope(|scope| {
             for mut system in systems {
                 trace!("Creating `{}` system instance", system.name());
 
+                // This gets moved into the thread
+                let mut stage_sync = stage_controller.next_system(system.name().to_string());
+
                 // Passing references into a `move` closure requires binding
                 // them into variables. A bit annoying.
                 let thread_references = (
-                    &frame_barrier,
-                    &post_frame_barrier,
                     &should_run,
                     &system_interfaces,
-                    &begin_barrier,
                     &data_lock,
                     &events_lock,
+                    &data_to_add,
+                    &data_to_remove,
                 );
 
                 thread::Builder::new()
                     .name(system.name().to_string())
                     .spawn_scoped(scope, move || {
                         let (
-                            frame_barrier,
-                            post_frame_barrier,
                             should_run,
                             system_interfaces,
-                            begin_barrier,
                             data_lock,
                             events_lock,
+                            data_to_add,
+                            data_to_remove,
                         ) = thread_references;
 
                         let mut ran_init = false;
-                        let mut data_to_remove = vec![];
-                        let mut data_to_add = vec![];
 
+                        // System control loop
                         while should_run.load(Ordering::SeqCst) {
-                            // Frame beginning stage
-                            {
-                                let mut data = data_lock.write().unwrap();
+                            stage_sync.begin_frame();
 
-                                for to_remove in data_to_remove.drain(0..) {
-                                    data.remove(&to_remove);
-                                }
-
-                                for (tid, value) in data_to_add.drain(0..) {
-                                    data.insert(tid, value);
-                                }
-
-                                begin_barrier.wait();
-                            }
-
-                            // Frame & post-frame stages
                             let events = events_lock.read().unwrap();
                             let data = data_lock.read().unwrap();
                             let mut system_context = SystemContext {
-                                should_run,
-                                frame_barrier,
-                                frame_barrier_waited: false,
+                                should_run: &should_run,
+                                system_sync: &mut stage_sync,
                                 system_interfaces,
                                 data: &data,
-                                data_to_remove: &mut data_to_remove,
-                                data_to_add: &mut data_to_add,
+                                data_to_remove: &data_to_remove,
+                                data_to_add: &data_to_add,
                                 events: &events,
                             };
 
@@ -154,47 +125,46 @@ impl Engine {
                             }
                             system.frame(&mut system_context);
 
-                            // Await any necessary barriers
-                            if !system_context.frame_barrier_waited {
-                                frame_barrier.wait();
-                            }
-                            post_frame_barrier.wait();
+                            // Finish frame stage in case the system didn't do it manually
+                            stage_sync.try_finish_frame_stage();
+                            stage_sync.finish_post_stage();
                         }
                     })
                     .expect("couldn't spawn system thread");
             }
 
-            // TODO: move frame profiling somewhere else
-            use std::time::{Duration, Instant};
-            let mut _fps = 123;
-            let mut frames_this_second = 0;
-            let mut second_counter = Duration::ZERO;
-
+            // Main controller loop
             is_running.store(true, Ordering::SeqCst);
             while should_run.load(Ordering::SeqCst) {
-                let frame_start = Instant::now();
+                data_lock
+                    .write_with(|data| {
+                        let mut to_remove = data_to_remove.write().unwrap();
+                        for tid in to_remove.drain(..) {
+                            data.remove(&tid);
+                        }
 
-                let mut events = events_lock.write().unwrap();
-                events.clear();
-                while let Ok(event) = event_receiver.try_recv() {
-                    events.push(event);
-                }
-                drop(events);
+                        let mut to_add = data_to_add.write().unwrap();
+                        for (tid, value) in to_add.drain(..) {
+                            data.insert(tid, value);
+                        }
+                    })
+                    .unwrap();
 
-                // TODO: add freeze/deadlock checks
-                begin_barrier.wait();
-                post_frame_barrier.wait();
+                events_lock
+                    .write_with(|events| {
+                        events.clear();
+                        while let Ok(event) = event_receiver.try_recv() {
+                            events.push(event);
+                        }
+                    })
+                    .unwrap();
+                
+                let result = stage_controller.dispatch_frame();
 
-                let frame_end = Instant::now();
-                let frame_time = frame_end.duration_since(frame_start);
-
-                frames_this_second += 1;
-                second_counter += frame_time;
-                if second_counter > Duration::from_secs(1) {
-                    second_counter = Duration::ZERO;
-                    _fps = frames_this_second;
-                    frames_this_second = 0;
-                }
+                data_lock
+                    .write()
+                    .unwrap()
+                    .insert(result.type_id(), Box::new(result));
             }
             is_running.store(false, Ordering::SeqCst);
         });
@@ -202,82 +172,200 @@ impl Engine {
         info!("The engine has finished execution.");
     }
 }
+/// Top level controller held by the Engine Controller thread.
+///
+/// Manages dispatching systems' stages and their profiling.
+pub struct TopLevelController {
+    greenlight_barrier: Barrier,
+    frame_barrier: Barrier,
+    post_frame_barrier: Barrier,
 
-/// Communication between the main engine control thread and the main GUI event
-/// loop thread. Basically it's the way the GUI thread can:
-///  * Report new window and system events to the engine.
-///  * Report window closing done by the user, requiring immediate shutdown.
-///    Note, that when the window close button is pressed, the window is closed
-///    instantly.
-pub struct EngineCommunication {
-    /// Send channel for event loop's events
-    pub event_sender: Sender<WindowEvent<'static>>,
-    /// If true, next iteration of the game loop will process a new frame
-    pub should_run: Arc<AtomicBool>,
-    /// If true, the engine is still running.
-    pub is_running: Arc<AtomicBool>,
+    remaining_systems: Mutex<usize>,
+    profiling_targets: Vec<Mutex<SystemProfiling>>,
 }
 
-/// It builds the engine. Very surprising, I know
-#[derive(Default)]
-pub struct EngineBuilder {
-    systems: Vec<Box<dyn for<'a> System<'a>>>,
-    system_interfaces: SystemInterfaceTypeMap,
-    data: DataTypeMap,
+impl<'a> TopLevelController {
+    // ## Behavior of an internal system loop cycle:
+    //  1. Wait for `greenlight_barrier` to fire off
+    //     - This sync point allows the engine to setup processing of next
+    //       frame
+    //
+    //  2. Enter the System `frame` callback:
+    //     - Perform normal frame stuff
+    //     - Wait for `frame_barrier` to fire off
+    //     - Do any post frame stuff
+    //  3. Wait for post_frame barrier to fire off
+    //
+    //  4. Go to step 1
+    //
+
+    pub fn new(system_count: usize) -> Self {
+        Self {
+            greenlight_barrier: Barrier::new(system_count + 1),
+            frame_barrier: Barrier::new(system_count + 1),
+            post_frame_barrier: Barrier::new(system_count + 1),
+
+            remaining_systems: Mutex::new(system_count),
+            profiling_targets: iter::repeat_with(Mutex::default)
+                .take(system_count)
+                .collect(),
+        }
+    }
+
+    pub fn next_system(&'a self, name: String) -> SystemSync<'a> {
+        let mut remaining = self.remaining_systems.lock().unwrap();
+        assert_ne!(*remaining, 0, "Too many spawned systems");
+        *remaining -= 1;
+
+        SystemSync {
+            name,
+            frame_stage_start: None,
+            frame_stage_finish: None,
+            post_stage_start: None,
+            post_stage_finish: None,
+            profiling_target: &self.profiling_targets[*remaining],
+
+            stage_point: 0,
+            greenlight_barrier: &self.greenlight_barrier,
+            frame_barrier: &self.frame_barrier,
+            post_frame_barrier: &self.post_frame_barrier,
+        }
+    }
+
+    pub fn dispatch_frame(&self) -> ProfilingResults {
+        let start = Instant::now();
+        self.greenlight_barrier.wait();
+        self.frame_barrier.wait();
+        self.post_frame_barrier.wait();
+        let end = Instant::now();
+
+        let total_time = end.duration_since(start);
+        let fps = (1.0 / total_time.as_secs_f64()).floor() as u32;
+
+        let systems = self
+            .profiling_targets
+            .iter()
+            .map(|mutex| {
+                let mut profiling = mutex.lock().unwrap();
+                let result = profiling.clone();
+                *profiling = SystemProfiling::default();
+                result
+            })
+            .collect::<SmallVec<_>>();
+
+        debug_assert!(!systems.spilled(), "too many systems, update profiling");
+
+        ProfilingResults {
+            fps,
+            total_time,
+            systems,
+        }
+    }
 }
 
-impl EngineBuilder {
-    /// Creates and includes a [`System`] instance, if it implements [`Default`]
-    pub fn make_system<S>(mut self) -> Self
-    where
-        S: for<'a> System<'a> + HasSystemInterface + Default,
-    {
-        let system = Box::new(S::default());
-        let system_interface = Box::new(system.create_system_interface());
-        self.systems.push(system);
-        self.system_interfaces
-            .insert(TypeId::of::<S::SystemInterface>(), system_interface);
-        self
+/// Manages synchronization and profiling of a system. Spawned by
+/// [`SystemStageController`].
+pub struct SystemSync<'a> {
+    name: String,
+    frame_stage_start: Option<Instant>,
+    frame_stage_finish: Option<Instant>,
+    post_stage_start: Option<Instant>,
+    post_stage_finish: Option<Instant>,
+    profiling_target: &'a Mutex<SystemProfiling>,
+
+    stage_point: usize,
+    greenlight_barrier: &'a Barrier,
+    frame_barrier: &'a Barrier,
+    post_frame_barrier: &'a Barrier,
+}
+
+impl<'a> SystemSync<'a> {
+    pub const GREENLIGHT_STAGE: usize = 0;
+    pub const FRAME_STAGE: usize = 1;
+    pub const POST_FRAME_STAGE: usize = 2;
+    pub const STAGE_COUNT: usize = 3;
+
+    /// Awaits the frame's greenlight
+    pub fn begin_frame(&mut self) {
+        assert_eq!(
+            self.stage_point,
+            Self::GREENLIGHT_STAGE,
+            "Frame wasn't yet finished"
+        );
+        self.greenlight_barrier.wait();
+        self.stage_point += 1;
+        self.frame_stage_start = Some(Instant::now());
     }
 
-    /// Includes specified [`Data`]
-    pub fn with_data<D>(mut self, data: D) -> Self
-    where
-        D: Data,
-    {
-        self.data.insert(TypeId::of::<D>(), Box::new(data));
-        self
+    pub fn finish_frame_stage(&mut self) {
+        assert_eq!(self.stage_point, Self::FRAME_STAGE);
+        self.frame_stage_finish = Some(Instant::now());
+        self.frame_barrier.wait();
+        self.stage_point += 1;
     }
 
-    /// Creates and includes a [`Data`] instance, if it implements [`Default`]
-    pub fn make_data<D>(self) -> Self
-    where
-        D: Data + Default,
-    {
-        self.with_data(D::default())
+    /// Returns true if frame barrier was awaited here
+    pub fn try_finish_frame_stage(&mut self) -> bool {
+        if self.stage_point == Self::FRAME_STAGE {
+            self.finish_frame_stage();
+            true
+        } else {
+            false
+        }
     }
 
-    /// Finalizes the engine build
-    pub fn build(self) -> (Engine, EngineCommunication) {
-        let (event_sender, event_receiver) = mpsc::channel();
-        let should_run = Arc::new(AtomicBool::new(true));
-        let is_running = Arc::new(AtomicBool::new(false));
-
-        let engine = Engine {
-            systems: self.systems,
-            system_interfaces: self.system_interfaces,
-            data: self.data,
-            event_receiver,
-            should_run: should_run.clone(),
-            is_running: is_running.clone(),
-        };
-
-        let comms = EngineCommunication {
-            event_sender,
-            should_run,
-            is_running,
-        };
-
-        (engine, comms)
+    pub fn begin_post_stage(&mut self) {
+        assert_eq!(self.stage_point, Self::POST_FRAME_STAGE);
+        self.post_stage_start = Some(Instant::now());
     }
+
+    pub fn finish_post_stage(&mut self) {
+        assert_eq!(self.stage_point, Self::POST_FRAME_STAGE);
+        self.post_stage_finish = Some(Instant::now());
+
+        self.profiling_target
+            .with(|profiling| {
+                let frame_start = self.frame_stage_start.take().unwrap();
+                let frame_finish = self.frame_stage_finish.take().unwrap();
+                let frame_stage_time = frame_finish.duration_since(frame_start);
+
+                let post_start = self.post_stage_start.take();
+                let post_finish = self.post_stage_finish.take();
+                let post_stage_time = if let Some(post_start) = post_start {
+                    Some(post_finish.unwrap().duration_since(post_start))
+                } else {
+                    None
+                };
+
+                *profiling = SystemProfiling {
+                    name: self.name.clone(),
+                    frame_stage_time,
+                    post_stage_time,
+                };
+            })
+            .unwrap();
+
+        self.post_frame_barrier.wait();
+        self.stage_point = 0;
+    }
+
+    pub fn stage_point(&self) -> usize {
+        self.stage_point
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ProfilingResults {
+    pub fps: u32,
+    pub total_time: Duration,
+    /// This Vec's capacity must be kept inline, if it spills, a debug assertion
+    /// is raised
+    pub systems: SmallVec<[SystemProfiling; 8]>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct SystemProfiling {
+    pub name: String,
+    pub frame_stage_time: Duration,
+    pub post_stage_time: Option<Duration>,
 }

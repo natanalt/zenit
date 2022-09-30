@@ -3,13 +3,12 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{engine::Engine, root::GameRoot, scene::SceneSystem};
+use crate::{engine::Engine, render::RenderSystem, root::GameRoot, scene::SceneSystem};
 use clap::Parser;
 use log::*;
 use std::{
     hint,
     sync::{atomic::Ordering, Arc},
-    thread,
 };
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
@@ -19,9 +18,9 @@ pub mod crash;
 pub mod cli;
 pub mod engine;
 pub mod platform;
+pub mod render;
 pub mod root;
 pub mod scene;
-pub mod render;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -46,16 +45,6 @@ pub fn main() -> ! {
 
     let game_root = GameRoot::new(args.game_root.as_ref());
 
-    let (engine, comms) = Engine::builder()
-        .make_system::<SceneSystem>()
-        .with_data(args)
-        .with_data(game_root) // TODO: change to mutex or rwlock?
-        .build();
-
-    thread::Builder::new()
-        .name("Engine Controller Thread".to_string())
-        .spawn(move || engine.run())
-        .expect("couldn't spawn main engine thread");
     let eloop = EventLoop::new();
     let window = Arc::new(
         WindowBuilder::new()
@@ -64,6 +53,14 @@ pub fn main() -> ! {
             .build(&eloop)
             .expect("Couldn't create main window"),
     );
+
+    let comms = Engine::builder()
+        .make_system::<SceneSystem>()
+        .make_system::<RenderSystem>()
+        .with_data(args)
+        .with_data(game_root) // TODO: change to mutex or rwlock?
+        .with_data(window.clone())
+        .build_and_run();
 
     // The main thread gets hijacked as the windowing thread
     eloop.run(move |event, _, flow| match event {
@@ -89,10 +86,8 @@ pub fn main() -> ! {
             }
 
             event => {
-                let result = comms
-                    .event_sender
-                    .send(event.to_static().unwrap());
-                
+                let result = comms.event_sender.send(event.to_static().unwrap());
+
                 // Is this really the best way to independently detect engine shutdowns? lol
                 if let Err(error) = result {
                     if comms.is_running.load(Ordering::SeqCst) {
@@ -103,7 +98,7 @@ pub fn main() -> ! {
                 }
             }
         },
-        
+
         Event::LoopDestroyed => {
             while comms.is_running.load(Ordering::SeqCst) {
                 hint::spin_loop();

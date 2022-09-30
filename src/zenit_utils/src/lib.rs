@@ -8,15 +8,22 @@ use std::mem;
 
 pub mod color;
 pub mod counter;
-pub mod packed;
 pub mod math;
+pub mod packed;
 
 pub mod fnv1a;
+
 pub use fnv1a::fnv1a_hash;
 pub use fnv1a::Fnv1aHashExt;
 
 mod cell_ext;
 pub use cell_ext::RefCellExt;
+
+mod rwlock_ext;
+pub use rwlock_ext::RwLockExt;
+
+mod mutex_ext;
+pub use mutex_ext::MutexExt;
 
 mod thread_cell;
 pub use thread_cell::ThreadCell;

@@ -1,7 +1,6 @@
-
 /// Type-safe wrapper for an angle specified in radians, so that you don't
 /// make the mistake of passing in degrees.
-/// 
+///
 /// Included is [`AngleExt`] which allows to use `.radians()` and `.degrees()`
 /// on f32 values and literals.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]

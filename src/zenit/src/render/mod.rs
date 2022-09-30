@@ -1,16 +1,16 @@
 //! Zenit Render System
-//! 
+//!
 //! ## Usage
 //! Generally, the scene system exposes a lot of common rendering functionality,
 //! to be used by usual game code.
-//! 
+//!
 //! Any rendering
-//! 
+//!
 //! ### Frame lifetime
-//! 
+//!
 
-use std::sync::{Arc, Barrier};
-use crate::engine::system::{System, HasSystemInterface, SystemContext};
+use crate::engine::system::{HasSystemInterface, System, SystemContext};
+use std::sync::Arc;
 
 mod interface;
 pub use interface::RenderInterface;
@@ -27,10 +27,10 @@ pub struct RenderSystem {
     comms: Arc<RenderCommunication>,
 }
 
-impl RenderSystem {
-    pub fn new() -> Self {
+impl Default for RenderSystem {
+    fn default() -> Self {
         Self {
-            comms: Arc::new(RenderCommunication {  }),
+            comms: Arc::new(RenderCommunication {}),
         }
     }
 }
@@ -40,11 +40,8 @@ impl<'ctx> System<'ctx> for RenderSystem {
         "Render System"
     }
 
-    fn frame(&mut self, context: &mut SystemContext<'ctx>) {
-
-        context.finish_frame_phase();
-
-        todo!()
+    fn frame<'a>(&mut self, context: &mut SystemContext<'ctx, 'a>) {
+        let _ = context;
     }
 }
 
@@ -58,5 +55,4 @@ impl HasSystemInterface for RenderSystem {
 }
 
 /// Communication between [`RenderSystem`] and [`RenderInterface`].
-struct RenderCommunication {
-}
+struct RenderCommunication {}

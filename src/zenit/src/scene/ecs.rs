@@ -1,12 +1,13 @@
+use super::SceneState;
+use rustc_hash::FxHashSet;
 use std::{
     any::{Any, TypeId},
     cell::{RefCell, RefMut},
-    collections::HashMap,
+    convert::identity,
     iter,
+    rc::Rc,
 };
 use thiserror::Error;
-
-use super::SceneState;
 
 /// An entity descriptor, a pointer that can be cheaply copied, with a size of
 /// 2 pointer sized integers.
@@ -25,13 +26,23 @@ impl Entity {
         index: usize::MAX,
         generation: usize::MAX,
     };
+
+    pub fn builder() -> EntityBuilder {
+        EntityBuilder::new()
+    }
 }
 
 pub struct Universe {
     top_generation: usize,
     new_search_start: usize,
-    entities: Vec<Option<(usize, RefCell<EntityStorage>)>>,
     entity_count: usize,
+    entities: Vec<Option<(usize, RefCell<EntityStorage>)>>,
+}
+
+impl Default for Universe {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Universe {
@@ -118,6 +129,18 @@ impl Universe {
         descriptor
     }
 
+    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.entities
+            .iter()
+            .map(Option::as_ref)
+            .filter_map(identity)
+            .enumerate()
+            .map(|(index, (generation, _))| Entity {
+                index,
+                generation: *generation,
+            })
+    }
+
     fn allocate_new_generation(&mut self) -> usize {
         let result = self.top_generation;
         self.top_generation = self
@@ -169,33 +192,59 @@ pub enum EntityVerificationError {
 }
 
 pub trait EntityBehavior: Any {
+    /// Called every frame for the behavior
     fn process(&mut self, entity: &mut EntityStorage, scene: &mut SceneState) {
         let _ = entity;
         let _ = scene;
     }
 }
 
-pub struct HeldComponent {}
+/// Marker trait for entity tags
+pub trait Tag: Any {}
 
 pub struct EntityStorage {
     pub label: Option<String>,
     descriptor: Entity,
-    components: HashMap<TypeId, HeldComponent>,
+    tags: RefCell<FxHashSet<TypeId>>,
+
+    /// This field is only used by scene frame code. It's exposed as an Rc to
+    /// allow the process caller to not hold a borrow on the [`EntityStorage`]
+    /// instance.
+    ///
+    /// It should not be accessed by any other code.
+    pub(super) behavior: Option<Rc<RefCell<dyn EntityBehavior>>>,
 }
 
 impl EntityStorage {
     pub fn descriptor(&self) -> Entity {
         self.descriptor
     }
+
+    pub fn add_tag<T: Tag>(&self) -> bool {
+        self.tags.borrow_mut().insert(TypeId::of::<T>())
+    }
+
+    pub fn has_tag<T: Tag>(&self) -> bool {
+        self.tags.borrow().contains(&TypeId::of::<T>())
+    }
+
+    pub fn remove_tag<T: Tag>(&self) -> bool {
+        self.tags.borrow_mut().remove(&TypeId::of::<T>())
+    }
 }
 
+/// Builds entities. Can be instantiated through `EntityBuilder::new()` or
+/// `Entity::builder()` depending on preference.
+#[derive(Default)]
 pub struct EntityBuilder {
     label: Option<String>,
+    behavior: Option<Rc<RefCell<dyn EntityBehavior>>>,
+    tags: FxHashSet<TypeId>,
 }
 
 impl EntityBuilder {
     pub fn new() -> Self {
-        Self { label: None }
+        Self::default()
     }
 
     pub fn label(mut self, label: impl ToString) -> Self {
@@ -203,8 +252,22 @@ impl EntityBuilder {
         self
     }
 
-    pub fn build(mut self, universe: &mut Universe) -> Entity {
-        todo!()
-        //universe.insert_entity(EntityStorage {})
+    pub fn behavior(mut self, behavior: impl EntityBehavior) -> Self {
+        self.behavior = Some(Rc::new(RefCell::new(behavior)));
+        self
+    }
+
+    pub fn tag<T: Tag>(mut self) -> Self {
+        self.tags.insert(TypeId::of::<T>());
+        self
+    }
+
+    pub fn build(self, universe: &mut Universe) -> Entity {
+        universe.insert_entity(EntityStorage {
+            label: self.label,
+            descriptor: Entity::INVALID,
+            tags: RefCell::new(self.tags),
+            behavior: self.behavior,
+        })
     }
 }

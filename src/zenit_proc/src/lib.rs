@@ -6,7 +6,6 @@ use syn::{parse_macro_input, DeriveInput};
 pub(crate) mod utils;
 
 mod m_define_node_type;
-mod m_derive_data;
 mod m_ext_repr;
 mod m_from_node;
 mod m_has_system_interface;
@@ -115,40 +114,12 @@ pub fn tupled_container_derefs(input: TokenStream) -> TokenStream {
     m_tupled_container_derefs::tupled_container_derefs(input)
 }
 
-/// Implements the `zenit::engine::Data` trait for given type. This type must
-/// implement [`Clone`].
-///
-/// ## Example
-/// ```ignore
-/// #[derive(Data)]
-/// struct ExampleStruct { value: u32 }
-///
-/// let value = ExampleStruct { value: 123u32 };
-/// let data: &dyn Data = &value;
-/// assert_eq!(data.read().value, 123u32);
-/// ```
-#[proc_macro_derive(Data)]
-pub fn derive_data(input: TokenStream) -> TokenStream {
-    m_derive_data::derive_data(input)
-}
-
 /// Creates a default `HasSystemInterface` instance, that is - no system
 /// interface, and to make the type system happy, the actual system interface
 /// type declared is `()`
 #[proc_macro_derive(HasSystemInterface)]
 pub fn derive_has_system_interface(input: TokenStream) -> TokenStream {
     m_has_system_interface::derive_has_system_interface(input)
-}
-
-/// Equivalent to `impl crate::scene::node::Tag for T {}`. Not much besides that,
-/// really.
-#[proc_macro_derive(Tag)]
-pub fn derive_tag(input: TokenStream) -> TokenStream {
-    let parsed = syn::parse_macro_input!(input as syn::DeriveInput);
-    let name = parsed.ident;
-    quote::quote! {
-        impl crate::scene::node::Tag for #name {}
-    }.into()
 }
 
 // This is kept in case it's ever useful again (likely not but whatevs)

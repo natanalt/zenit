@@ -2135,6 +2135,7 @@ dependencies = [
  "pollster",
  "pretty_env_logger",
  "raw-window-handle",
+ "rustc-hash",
  "smallvec",
  "thiserror",
  "toml",

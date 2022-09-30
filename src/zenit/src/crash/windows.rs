@@ -23,7 +23,7 @@ use winapi::{
 compile_error!("Windows crash handler can only be compiled for Windows targets");
 
 // TODO: make the crash handler window resizable
-// TODO: make the crash handler also shutdown the whole engine, to not leave the user with a half-broken game
+// TODO: make the GitHub issue tracker link an actual clickable link
 
 const CONFIG: HandlerConfig = HandlerConfig {
     window_title: "Zenit Crash Handler",
@@ -39,7 +39,7 @@ const CONFIG: HandlerConfig = HandlerConfig {
     \n\
     A detailed crash log is written below.",
 
-    footer_text: "Press Copy to copy this error to clipboard, and press OK to exit.",
+    footer_text: "Press Copy to copy this error log to your clipboard, and press OK to exit.",
 
     copy_text: "Copy",
     ok_text: "OK",
@@ -240,8 +240,8 @@ pub fn set_panic_hook() {
                 default handler will be used (output to console, if one exists).";
             MessageBoxW(
                 ptr::null_mut(),
-                wstring("Zenit Engine"),
                 wstring(CAPTION),
+                wstring("Zenit Engine"),
                 MB_OK | MB_ICONWARNING,
             );
             return;
@@ -472,11 +472,11 @@ unsafe extern "system" fn window_proc(
 unsafe fn window_create_error() {
     MessageBoxW(
         ptr::null_mut(),
-        wstring("Zenit Crash Handler"),
         wstring(
             "Zenit has crashed, but the error handler couldn't be opened for some reason.\n\n\
             That's a lot of errors at once! Zenit will now shutdown, you get no logs back. :(",
         ),
+        wstring("Zenit Crash Handler"),
         MB_OK | MB_ICONERROR,
     );
 }

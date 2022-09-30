@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use super::Scenario;
 use derive_builder::Builder;
-use glam::{IVec2, Vec3A, Quat};
+use glam::{IVec2, Quat, Vec3A};
+use std::sync::Arc;
 use wgpu::TextureFormat;
 use zenit_utils::math::Radians;
-use super::Scenario;
 
 /// A camera specifies from what point a scene is rendered.
 #[derive(Debug, Clone, PartialEq, Builder)]
