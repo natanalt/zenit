@@ -3,13 +3,10 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{engine::Engine, render::RenderSystem, root::GameRoot, scene::SceneSystem};
+use crate::{engine::{EngineContext, TimeStep}, root::GameRoot, render::Renderer};
 use clap::Parser;
 use log::*;
-use std::{
-    hint,
-    sync::{atomic::Ordering, Arc},
-};
+use std::{rc::Rc, time::Duration};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
@@ -18,6 +15,7 @@ pub mod crash;
 pub mod cli;
 pub mod engine;
 pub mod platform;
+pub mod profiler;
 pub mod render;
 pub mod root;
 pub mod scene;
@@ -46,7 +44,7 @@ pub fn main() -> ! {
     let game_root = GameRoot::new(args.game_root.as_ref());
 
     let eloop = EventLoop::new();
-    let window = Arc::new(
+    let window = Rc::new(
         WindowBuilder::new()
             .with_title("Zenit Engine")
             .with_inner_size(LogicalSize::new(1280i32, 720i32))
@@ -54,25 +52,27 @@ pub fn main() -> ! {
             .expect("Couldn't create main window"),
     );
 
-    let comms = Engine::builder()
-        .make_system::<SceneSystem>()
-        .make_system::<RenderSystem>()
-        .with_data(args)
-        .with_data(game_root) // TODO: change to mutex or rwlock?
-        .with_data(window.clone())
-        .build_and_run();
+    let mut engine = EngineContext::new(window.clone())
+        .with_global(game_root)
+        .with_global(window.clone())
+        .with_named_global::<TimeStep>(Duration::from_secs_f32(1.0 / 60.0));
 
     // The main thread gets hijacked as the windowing thread
     eloop.run(move |event, _, flow| match event {
+        Event::NewEvents(_) => {
+            engine.profiler.begin_frame();
+            engine.events.clear();
+        }
+
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => {
                 info!("Window close requested");
 
                 // Hide the window here so it disappears faster, while the app
                 // actually shuts down in the background
+                // it just feels better
                 window.set_visible(false);
 
-                comms.should_run.store(false, Ordering::SeqCst);
                 *flow = ControlFlow::Exit;
             }
 
@@ -86,25 +86,16 @@ pub fn main() -> ! {
             }
 
             event => {
-                let result = comms.event_sender.send(event.to_static().unwrap());
-
-                // Is this really the best way to independently detect engine shutdowns? lol
-                if let Err(error) = result {
-                    if comms.is_running.load(Ordering::SeqCst) {
-                        panic!("couldn't send events to engine: {error:?}")
-                    } else {
-                        *flow = ControlFlow::Exit;
-                    }
-                }
+                engine.events.push(event.to_static().unwrap());
             }
         },
 
-        Event::LoopDestroyed => {
-            while comms.is_running.load(Ordering::SeqCst) {
-                hint::spin_loop();
-            }
+        Event::MainEventsCleared => {
+            engine.run_frame();
+        }
 
-            trace!("Engine reported shutdown, shutting down the event loop");
+        Event::LoopDestroyed => {
+            trace!("Shutting down the event loop");
         }
         _ => {}
     });

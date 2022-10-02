@@ -2,9 +2,14 @@
 // (line starting with // are automatically stripped)
 // (this doesn't apply after the line's beginning, where you have to use standard TOML # for comments)
 
-// (shader can actually be used for more than just triangles ;) )
+// The metadata is largely arbitrary and doesn't have a well-defined structure.
+// Some shaders may store information about, for example, binding indices, so that
+// the main renderer code doesn't have to hardcode them internally.
+
+// (despite the description, this shader can actually be used for more than just triangles ;) )
 description = "Example triangle shader"
 
+// Shared data is pasted at the beginning of all other shaders
 shared {
     #include "shader_base.inc"
 
