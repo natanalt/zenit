@@ -5,6 +5,7 @@
 // The metadata is largely arbitrary and doesn't have a well-defined structure.
 // Some shaders may store information about, for example, binding indices, so that
 // the main renderer code doesn't have to hardcode them internally.
+// (see skybox.shader as an example)
 
 // (despite the description, this shader can actually be used for more than just triangles ;) )
 description = "Example triangle shader"

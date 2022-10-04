@@ -85,7 +85,7 @@ impl EngineContext {
         }
 
         self.profiler.next_stage(FrameStage::RenderProcessing);
-        // ...
+        self.renderer.render_all();
 
         self.profiler.finish_frame();
     }

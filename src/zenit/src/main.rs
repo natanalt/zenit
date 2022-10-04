@@ -3,7 +3,10 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{engine::{EngineContext, TimeStep}, root::GameRoot, render::Renderer};
+use crate::{
+    engine::{EngineContext, TimeStep},
+    root::GameRoot,
+};
 use clap::Parser;
 use log::*;
 use std::{rc::Rc, time::Duration};

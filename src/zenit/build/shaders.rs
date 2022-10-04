@@ -20,10 +20,10 @@ impl GlslToolchain {
     pub fn find() -> Self {
         Self {
             compiler: Self::search_single("glslc")
-                .or(Self::search_single("glslc.exe"))
+                .or_else(|| Self::search_single("glslc.exe"))
                 .expect("glslc not found"),
             linker: Self::search_single("spirv-link")
-                .or(Self::search_single("spirv-link.exe"))
+                .or_else(|| Self::search_single("spirv-link.exe"))
                 .expect("spirv-link not found"),
         }
     }

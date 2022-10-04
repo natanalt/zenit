@@ -5,6 +5,7 @@
     #error CAMERA_BUFFER_BINDING is required
 #endif
 
+// Must match zenit::render::CameraBuffer
 layout (binding = CAMERA_BUFFER_BINDING) uniform CameraState {
     mat4 projection;
     mat4 world_to_view;
