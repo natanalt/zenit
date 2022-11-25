@@ -11,16 +11,9 @@ use wgpu::{
 use winit::window::Window;
 use zenit_utils::math::Radians;
 
-#[allow(dead_code)]
 pub struct Renderer {
-    instance: Instance,
-    adapter: Adapter,
-    device: Device,
-    queue: Queue,
-    surface: Surface,
-    sconfig: SurfaceConfiguration,
+    dc: DeviceContext,
     window: Rc<Window>,
-    viewports: Vec<Rc<RefCell<Viewport>>>,
 }
 
 impl Renderer {
@@ -64,193 +57,32 @@ impl Renderer {
         surface.configure(&device, &sconfig);
 
         Self {
-            viewports: vec![Rc::new(RefCell::new(Viewport {
-                size: uvec2(sconfig.width, sconfig.height),
-                color_target: Rc::new(todo!()),
-                camera: Camera::new(&device),
-                clear_color: Some(vec4(1.0, 0.0, 1.0, 1.0)),
-                scenario: Rc::new(RefCell::new(Scenario {
-                    instances: vec![Rc::new(RefCell::new(ModelInstance {
-                        model: Rc::new(Model {
-                            name: "Triangle".to_string(),
-                            vertex_buffer: device.create_buffer_init(&BufferInitDescriptor {
-                                label: Some("Triangle"),
-                                contents: &[
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0xBF,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0xBF,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0xBF,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F,
-                                    0x00,
-                                    0x00,
-                                    0x80,
-                                    0x3F
-                                ],
-                                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                            }),
-                            index_buffer: device.create_buffer(&BufferDescriptor {
-                                label: None,
-                                size: 0,
-                                usage: BufferUsages::COPY_DST,
-                                mapped_at_creation: false,
-                            }),
-                        }),
-                        material: ModelMaterial::Normal(NormalMaterial {}),
-                        transform: Affine3A::IDENTITY,
-                    }))],
-                })),
-            }))],
-            instance,
-            adapter,
-            device,
-            queue,
-            surface,
-            sconfig,
+            dc: DeviceContext {
+                device,
+                queue,
+                instance,
+                adapter,
+                surface,
+                sconfig,
+                current_surface: None,
+            },
             window,
         }
     }
 
     pub fn render_all(&mut self) {
-        let context = RenderContext {
-            device: &self.device,
-            queue: &self.queue,
-            instance: &self.instance,
-            adapter: &self.adapter,
-        };
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Frame command encoder"),
-            });
-
-        let surface_texture = self.surface.get_current_texture().unwrap();
-        let window_view = surface_texture.texture.create_view(&TextureViewDescriptor {
-            label: Some("Surface window"),
-            format: Some(self.sconfig.format),
-            dimension: Some(TextureViewDimension::D2),
-            aspect: TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        });
-
-        for viewport_rc in &self.viewports {
-            let viewport = viewport_rc.borrow();
-            let scenario = viewport.scenario.borrow();
-
-            let target_size = viewport.size.as_vec2();
-
-            viewport
-                .camera
-                .update_buffer(target_size.x / target_size.y, &self.queue);
-
-            if let Some(clear_color) = viewport.clear_color {
-                let pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: Some("Color clear pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view: todo!(),
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Clear(Color {
-                                r: clear_color.x as f64,
-                                g: clear_color.y as f64,
-                                b: clear_color.z as f64,
-                                a: clear_color.w as f64,
-                            }),
-                            store: true,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                });
-                drop(pass);
-            }
-
-            for instance_rc in &scenario.instances {
-                let instance = instance_rc.borrow();
-                match &instance.material {
-                    ModelMaterial::Normal(material) => {
-                        material.render(&instance, context, &viewport, &mut encoder)
-                    }
-                }
-            }
-        }
-
-        self.queue.submit(iter::once(encoder.finish()));
-        surface_texture.present();
+        todo!()
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct RenderContext<'a> {
-    pub device: &'a Device,
-    pub queue: &'a Queue,
-    pub instance: &'a Instance,
-    pub adapter: &'a Adapter,
+pub struct DeviceContext {
+    pub device: Device,
+    pub queue: Queue,
+    pub instance: Instance,
+    pub adapter: Adapter,
+    pub surface: Surface,
+    pub sconfig: SurfaceConfiguration,
+    pub current_surface: Option<TextureView>,
 }
 
 pub struct Shader {
@@ -338,125 +170,43 @@ impl Camera {
     }
 }
 
-pub struct Viewport {
-    pub size: UVec2,
-    pub color_target: Rc<Texture>,
-    pub clear_color: Option<Vec4>,
-    pub camera: Camera,
-    pub scenario: Rc<RefCell<Scenario>>,
+/// A complete (and someday fairly cheaply cloneable) set of information
+/// about everything that needs to be rendered.
+/// 
+/// During a frame's rendering, this is first locked by the process code, then
+/// by the rendering code.
+/// 
+/// Once multithreading is brought back into the engine, this structure will
+/// need to be copied cheaply, as it'll be copied by the render thread every
+/// frame.
+pub struct RenderState {
+
 }
 
-pub enum Texture {
-    Window(),
-    Texture2D(Texture2D),
-}
-
-pub struct Texture2D {
-    pub view: TextureView,
-    pub format: TextureFormat,
-    pub size: UVec2,
-    pub mipmaps: u32,
-}
-
-
+/// A scenario describes everything about a scene - the skybox, models, particles
+/// and so on. A [`Viewport`] combines a scenario with a camera and render target,
+/// allowing for a full render.
 pub struct Scenario {
-    instances: Vec<Rc<RefCell<ModelInstance>>>,
+    pub skybox: Skybox,
+    pub lights: Vec<Light>,
 }
 
-impl Scenario {
-    pub fn new() -> Self {
-        Self { instances: vec![] }
-    }
-}
+/// A skybox includes information about the skybox cubemap.
+/// 
+/// Someday it may also include information about directional light, or HDR info,
+/// or who knows what, idfk yet lol
+pub struct Skybox {}
 
-pub struct Model {
-    // TODO: make this struct more matching for BF2 models
-    name: String,
-
-    // Meaning of these fields is defined by the ModelMaterial
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-}
-
-pub struct NormalMaterial {}
-
-impl NormalMaterial {
-    pub fn render(
-        &self,
-        instance: &ModelInstance,
-        context: RenderContext,
-        viewport: &Viewport,
-        encoder: &mut CommandEncoder,
-    ) {
-        let RenderContext { device, .. } = context;
-
-        static PIPELINE_CELL: OnceCell<RenderPipeline> = OnceCell::new();
-        let pipeline = PIPELINE_CELL.get_or_init(|| {
-            let shader = include_shader!(device, "example_triangle.shader");
-            device.create_render_pipeline(&RenderPipelineDescriptor {
-                label: None,
-                layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                    label: None,
-                    bind_group_layouts: &[],
-                    push_constant_ranges: &[],
-                })),
-                vertex: VertexState {
-                    module: &shader.module,
-                    entry_point: "main",
-                    buffers: &[VertexBufferLayout {
-                        array_stride: (2 + 4) * 4,
-                        step_mode: VertexStepMode::Vertex,
-                        attributes: &[
-                            VertexAttribute {
-                                format: VertexFormat::Float32x2,
-                                offset: 0 * 4,
-                                shader_location: 0,
-                            },
-                            VertexAttribute {
-                                format: VertexFormat::Float32x4,
-                                offset: 2 * 4,
-                                shader_location: 1,
-                            },
-                        ],
-                    }],
-                },
-                fragment: Some(FragmentState {
-                    module: &shader.module,
-                    entry_point: "main",
-                    targets: &[todo!()],
-                }),
-                primitive: PrimitiveState {
-                    topology: PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: FrontFace::Cw,
-                    cull_mode: Some(Face::Back),
-                    polygon_mode: PolygonMode::Fill,
-                    unclipped_depth: false,
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-                multiview: None,
-            })
-        });
-
-        let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: None,
-            color_attachments: todo!(),
-            depth_stencil_attachment: None,
-        });
-        pass.set_vertex_buffer(0, instance.model.vertex_buffer.slice(..));
-        pass.set_pipeline(pipeline);
-        pass.draw(0..3, 0..1);
-    }
-}
-
-pub enum ModelMaterial {
-    Normal(NormalMaterial),
+pub enum Light {
+    PointLight,
+    Spotlight,
+    DirectionalLight,
 }
 
 pub struct ModelInstance {
-    model: Rc<Model>,
-    material: ModelMaterial,
-    transform: Affine3A,
+    pub model: Rc<Model>,
+}
+
+pub struct Model {
+
 }

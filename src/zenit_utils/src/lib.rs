@@ -10,9 +10,9 @@ pub mod color;
 pub mod counter;
 pub mod math;
 pub mod packed;
+pub mod pool;
 
 pub mod fnv1a;
-
 pub use fnv1a::fnv1a_hash;
 pub use fnv1a::Fnv1aHashExt;
 

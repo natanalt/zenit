@@ -1,7 +1,7 @@
 pub const FNV_PRIME: u32 = 16777619;
 pub const OFFSET_BASIS: u32 = 2166136261;
 
-/// Performs a 32-bit FNV-1a hash, as done by the original game.
+/// Performs a 32-bit FNV-1a hash, as done by the original BF2 game.
 ///
 /// ## Example
 /// ```
@@ -32,7 +32,7 @@ pub trait Fnv1aHashExt {
     ///
     /// ## Example:
     /// ```
-    /// use zenit_utils::FnvHashExt;
+    /// use zenit_utils::Fnv1aHashExt;
     ///
     /// let hash: u32 = 0x266561d8;
     /// assert!(hash.fnv1a_matches("all_fly_snowspeeder"))

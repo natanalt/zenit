@@ -22,7 +22,7 @@ impl NodeName {
     /// ## Examples
     /// Basic usage:
     /// ```
-    /// use zenit_lvl_core::node::NodeName;
+    /// use zenit_lvl::node::NodeName;
     ///
     /// let name = NodeName::from_str("FMT_");
     /// assert_eq!(0x5f544d46u32, name.into());
@@ -30,7 +30,7 @@ impl NodeName {
     ///
     /// Invalid usage:
     /// ```should_panic
-    /// use zenit_lvl_core::node::NodeName;
+    /// use zenit_lvl::node::NodeName;
     ///
     /// let _ = NodeName::from_str("too long");
     /// ```

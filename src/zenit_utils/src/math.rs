@@ -38,7 +38,7 @@ pub trait AngleExt {
 impl AngleExt for f32 {
     #[inline]
     fn radians(self) -> Radians {
-        Radians::from_degrees(self)
+        Radians::from_radians(self)
     }
 
     #[inline]
