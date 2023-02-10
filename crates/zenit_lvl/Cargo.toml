@@ -1,0 +1,14 @@
+[package]
+name = "zenit_lvl"
+description = "SWBF2 level file reader and writer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+zenit_proc.workspace = true
+zenit_utils.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+byteorder.workspace = true
+bitflags.workspace = true

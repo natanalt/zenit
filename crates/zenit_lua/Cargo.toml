@@ -1,0 +1,18 @@
+[package]
+name = "zenit_lua"
+description = "Custom Lua 5.0 implementation for Zenit Engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+zenit_utils.workspace = true
+zenit_proc.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+byteorder.workspace = true
+smallvec.workspace = true
+rustc-hash.workspace = true
+sealed.workspace = true
+ordered-float.workspace = true
+parking_lot.workspace = true

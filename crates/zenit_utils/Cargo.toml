@@ -1,0 +1,11 @@
+[package]
+name = "zenit_utils"
+description = "General purpose utilities and shared code of Zenit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+byteorder.workspace = true
