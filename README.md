@@ -1,6 +1,6 @@
 # 🚀 Zenit Engine
 [![Unit tests (Windows)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
-[![Unit tests (Linux)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-windows.yml)
+[![Unit tests (Linux)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-linux.yml/badge.svg)](https://github.com/natanalt/zenit/actions/workflows/unit-tests-linux.yml)
 
 **Zenit** is a project attempting to create an open-source engine compatible with the PC version of *Star Wars Battlefront II (2005)*.
 
@@ -18,10 +18,9 @@ The usual development workflow is:
  * `cargo build` to build the project
  * `cargo run` to run it (use `cargo run -- parameters` to pass command line arguments)
  * `cargo build --bin crate_name` to only build a single crate
+ * *(using `--profile release` is generally recommended)*
 
 You can also look at automated unit test workflows in the [*.github/workflows*](.github/workflows) directory.
-
-It is recommended to build optimized builds of the game (`--profile release`), but that does take longer. 
 
 ## Requirements
 Zenit requires slightly newer hardware than the original PC game. My work machine uses a 4th gen Intel i3 + GTX 750 Ti, so it's not super demanding!
@@ -42,15 +41,15 @@ Zenit requires slightly newer hardware than the original PC game. My work machin
 Other platforms, like macOS and Android will be supported in the future. macOS builds may already work with minimal changes, but I don't have any Macs at the moment, so I can't test this. Linux and Windows builds are automatically CI tested, so those are the only guarantees I can make.
 
 ## Internal project structure
-The project is separated into multiple crates in the [src](src/) directory:
- * [**crates/zenit**](src/zenit/) - the main engine and the core of Zenit's codebase
- * [**crates/zenit_lvl**](src/zenit_lvl/) - loader of BF2's level files, can be used as a standalone library
- * [**crates/zenit_lua**](src/zenit_lua/) - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
- * [**crates/zenit_utils**](src/zenit_utils/) - general utilities and shared code
- * [**crates/zenit_proc**](src/zenit_proc/) - engine-wide proc macros
+The project is separated into multiple crates in the [crates](crates/) directory:
+ * [**crates/zenit**](crates/zenit/) - the main engine and the core of Zenit's codebase
+ * [**crates/zenit_lvl**](crates/zenit_lvl/) - loader of BF2's level files, can be used as a standalone library
+ * [**crates/zenit_lua**](crates/zenit_lua/) - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
+ * [**crates/zenit_utils**](crates/zenit_utils/) - general utilities and shared code
+ * [**crates/zenit_proc**](crates/zenit_proc/) - engine-wide proc macros
 
 Stuff that's not currently there but may be added in the future:
- * **src/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
+ * **crates/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
 
 ### Format reference book
 The directory **format_book/** contains [mdBook](https://github.com/rust-lang/mdBook)-based documentation for Battlefront II's file formats. It's better served there, than in random comments in the project. It's not yet automatically deployed online.
