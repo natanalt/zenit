@@ -4,12 +4,11 @@
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
 use crate::{
-    engine::{EngineContext, TimeStep},
-    root::GameRoot,
+    assets::root::GameRoot, render::system::RenderSystem, scene::system::SceneSystem,
 };
 use clap::Parser;
 use log::*;
-use std::{rc::Rc, time::Duration};
+use std::sync::{Arc, atomic::Ordering};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
@@ -18,9 +17,9 @@ pub mod crash;
 pub mod cli;
 pub mod engine;
 pub mod platform;
-pub mod profiler;
 pub mod render;
-pub mod root;
+pub mod assets;
+pub mod ecs;
 pub mod scene;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -44,27 +43,40 @@ pub fn main() -> ! {
     #[cfg(feature = "crash-handler")]
     crash::enable_panic_handler();
 
+    if args.singlethreaded {
+        // TODO: --singlethreaded support
+        warn!("Singlethreaded engine execution is not yet supported");
+    }
+
     let game_root = GameRoot::new(args.game_root.as_ref());
 
     let eloop = EventLoop::new();
-    let window = Rc::new(
+    let window = Arc::new(
         WindowBuilder::new()
             .with_title("Zenit Engine")
             .with_inner_size(LogicalSize::new(1280i32, 720i32))
             .build(&eloop)
-            .expect("Couldn't create main window"),
+            .expect("couldn't create main window"),
     );
 
-    let mut engine = EngineContext::new(window.clone())
-        .with_global(game_root)
-        .with_global(window.clone())
-        .with_named_global::<TimeStep>(Duration::from_secs_f32(1.0 / 60.0));
+    let captured_window = window.clone();
+    let (engine_context, engine_thread_handle) = engine::start(move |builder| {
+        let gc = builder.global_context();
+        gc.game_root = game_root;
+
+        builder
+            .with_system(SceneSystem::new())
+            .with_system(RenderSystem::new(captured_window));
+    });
+
+    let mut engine_thread_handle = Some(engine_thread_handle);
 
     // The main thread gets hijacked as the windowing thread
     eloop.run(move |event, _, flow| match event {
         Event::NewEvents(_) => {
-            engine.profiler.begin_frame();
-            engine.events.clear();
+            if !engine_context.is_running.load(Ordering::Acquire) {
+                flow.set_exit();
+            }
         }
 
         Event::WindowEvent { window_id, event } if window_id == window.id() => match event {
@@ -76,7 +88,10 @@ pub fn main() -> ! {
                 // it just feels better
                 window.set_visible(false);
 
-                *flow = ControlFlow::Exit;
+                engine_context.request_shutdown();
+                engine_thread_handle.take().unwrap().join().unwrap();
+
+                flow.set_exit();
             }
 
             WindowEvent::ScaleFactorChanged {
@@ -89,12 +104,10 @@ pub fn main() -> ! {
             }
 
             event => {
-                engine.events.push(event.to_static().unwrap());
             }
         },
 
         Event::MainEventsCleared => {
-            engine.run_frame();
         }
 
         Event::LoopDestroyed => {

@@ -14,4 +14,7 @@ pub struct Args {
                 start."
     )]
     pub game_root: Option<PathBuf>,
+
+    #[clap(long, help = "Forces the engine to run singlethreaded")]
+    pub singlethreaded: bool,
 }

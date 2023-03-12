@@ -498,7 +498,7 @@ unsafe fn window_create_error() {
 unsafe fn wstring(source: &str) -> *mut u16 {
     OsString::from(source)
         .encode_wide()
-        .chain(iter::once(0)) // don't forget the null byte, C is annoying
+        .chain(iter::once(0u16)) // don't forget the null u16, C is annoying
         .collect::<Vec<u16>>()
         .leak()
         .as_mut_ptr()

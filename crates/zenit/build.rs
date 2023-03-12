@@ -1,4 +1,4 @@
-use std::{env, ffi::OsString, fs, io};
+use std::{env, io};
 
 fn main() -> io::Result<()> {
     println!("cargo:rerun-if-changed=assets");

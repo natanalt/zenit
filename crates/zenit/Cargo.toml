@@ -5,7 +5,6 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
-build = "build/build.rs"
 default-run = "zenit"
 
 [features]
@@ -22,6 +21,8 @@ crash-handler = []
 # Effective only on Windows. If set, Zenit is linked using the Windows subsystem, rather than
 # the default console one.
 no-console = []
+
+# TODO: verify which dependencies should stick around
 
 [dependencies]
 zenit_lvl.workspace = true
@@ -40,13 +41,17 @@ pollster.workspace = true
 chrono.workspace = true
 clap.workspace = true
 smallvec.workspace = true
-rustc-hash.workspace = true
+rustc-hash.workspace = true # TODO: replace with ahash
 once_cell.workspace = true
 winit.workspace = true
 glam.workspace = true
 crevice.workspace = true
 wgpu.workspace = true
 raw-window-handle.workspace = true
+crossbeam.workspace = true
+parking_lot.workspace = true
+include_dir.workspace = true
+paste.workspace = true
 
 [build-dependencies]
 derive_builder.workspace = true

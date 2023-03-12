@@ -28,9 +28,8 @@ pub struct ThreadCell<T> {
 
 impl<T> ThreadCell<T> {
     /// Returns a thread cell that cannot be ever retrieved
-    ///
-    /// Don't do this too much lol
     pub fn invalid() -> Self {
+        // TODO: please replace this with a once-cell
         // Spawn a blank thread to generate a new ID
         let tid = thread::spawn(move || {}).thread().id();
 

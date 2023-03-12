@@ -5,12 +5,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
-// oh yes
+// TODO: get rid of this, and replace invalid checks with something sensible
+//       Instead of checking for equaility with the INVALID_MARKER, check
+//       1. If the main game path is empty
+//       2. If so, check if it contains the necessary game files
 const INVALID_MARKER: &str = "/this/is/an/invalid/path/please/do/not/use";
+
+/// A directory is considered "valid" if it hits all required files
+const REQUIRED_FILES: &[&str] = &["common.lvl", "core.lvl", "ingame.lvl", "mission.lvl"];
 
 /// Game root contains an internal path that points to the `_lvl_pc` directory
 /// of the game.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GameRoot {
     /// Directory with the main game contents.
     pub main: PathBuf,
@@ -34,10 +40,10 @@ impl GameRoot {
             Self { main: path }
         } else {
             Self {
+
                 main: PathBuf::from(INVALID_MARKER),
             }
         };
-
         if !result.is_invalid() {
             info!("Using game root: {}", result.main.display());
         }
@@ -45,22 +51,18 @@ impl GameRoot {
         result
     }
 
-    #[inline]
     pub fn is_invalid(&self) -> bool {
         self.main.to_str() == Some(INVALID_MARKER)
     }
 
-    #[inline]
     pub fn make_path(&self, relative: impl AsRef<Path>) -> PathBuf {
         self.main.join(relative).canonicalize().unwrap()
     }
 
-    #[inline]
     pub fn open_read_file(&self, relative: impl AsRef<Path>) -> io::Result<File> {
         File::open(self.make_path(relative))
     }
 
-    #[inline]
     pub fn read_file(&self, relative: impl AsRef<Path>) -> io::Result<Vec<u8>> {
         fs::read(self.make_path(relative))
     }
@@ -69,8 +71,6 @@ impl GameRoot {
 /// Attempts to scan this directory for a valid main directory. If none is
 /// found, or depth limit is exceeded, returns None.
 fn scan_directory_for_main(root: PathBuf, depth: u32) -> io::Result<Option<PathBuf>> {
-    // A directory is considered "valid" if it hits all required files
-    const REQUIRED_FILES: &[&str] = &["common.lvl", "core.lvl", "ingame.lvl", "mission.lvl"];
     const MAX_SCAN_DEPTH: u32 = 4;
 
     if depth > MAX_SCAN_DEPTH {
