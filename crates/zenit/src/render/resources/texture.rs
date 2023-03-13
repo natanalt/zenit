@@ -2,10 +2,16 @@ use wgpu::*;
 use glam::*;
 use zenit_proc::ext_repr;
 
+pub use zenit_lvl::game::texture::LevelTextureKind as TextureKind;
+
 /// A 2D texture stored on the GPU.
+/// 
+/// The texture can be a 1 layered surface, or a 6 layered cubemap. For cubemaps, layers correspond
+/// to different faces of the cube (in order: +X, -X, +Y, -Y, +Z, -Z).
 pub struct Texture2D {
     pub handle: wgpu::Texture,
     pub view: wgpu::TextureView,
+    pub kind: TextureKind,
 }
 
 impl Texture2D {
@@ -24,17 +30,4 @@ pub enum CubemapFace {
     Down = 3,
     Forward = 4,
     Backward = 5,
-}
-
-/// A 2D cubemap stored on the GPU.
-/// 
-/// Internally, a cubemap is a 2D texture with 6 layers. Those layers correspond to different
-/// faces of the cube (+X, -X, +Y, -Y, +Z, -Z)
-pub struct TextureCubemap {
-    pub handle: wgpu::Texture,
-    pub view: wgpu::TextureView,
-}
-
-impl TextureCubemap {
-
 }

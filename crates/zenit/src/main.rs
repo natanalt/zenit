@@ -4,22 +4,25 @@
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
 use crate::{
-    assets::root::GameRoot, render::system::RenderSystem, scene::system::SceneSystem,
+    assets::{manager::AssetManager, root::GameRoot},
+    render::system::RenderSystem,
+    scene::system::SceneSystem,
 };
 use clap::Parser;
 use log::*;
-use std::sync::{Arc, atomic::Ordering};
+use parking_lot::Mutex;
+use std::sync::{atomic::Ordering, Arc};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
 #[cfg(feature = "crash-handler")]
 pub mod crash;
 
+pub mod assets;
 pub mod cli;
+pub mod ecs;
 pub mod engine;
 pub mod platform;
 pub mod render;
-pub mod assets;
-pub mod ecs;
 pub mod scene;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -63,6 +66,9 @@ pub fn main() -> ! {
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
         let gc = builder.global_context();
         gc.game_root = game_root;
+        gc.asset_manager = Some(Arc::new(Mutex::new(AssetManager::new(
+            gc.game_root.clone(),
+        ))));
 
         builder
             .with_system(SceneSystem::new())
@@ -103,12 +109,10 @@ pub fn main() -> ! {
                 warn!("Scale factor changed to {scale_factor}, the engine doesn't handle this yet");
             }
 
-            event => {
-            }
+            event => {}
         },
 
-        Event::MainEventsCleared => {
-        }
+        Event::MainEventsCleared => {}
 
         Event::LoopDestroyed => {
             trace!("Shutting down the event loop");

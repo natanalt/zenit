@@ -2,12 +2,11 @@ use crate::render::DeviceContext;
 use glam::*;
 use std::sync::Arc;
 use wgpu::*;
-
-use super::TextureCubemap;
+use super::Texture2D;
 
 pub enum Skybox {
     Textured {
-        texture: Arc<TextureCubemap>,
+        texture: Arc<Texture2D>,
         bind_group: BindGroup,
     },
     FlatColored {

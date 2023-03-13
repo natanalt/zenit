@@ -1,7 +1,7 @@
 use crate::render::DeviceContext;
 use include_dir::{include_dir, Dir};
 use log::*;
-use rustc_hash::FxHashMap;
+use ahash::AHashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use wgpu::*;
@@ -49,13 +49,13 @@ pub struct Shader {
 }
 
 pub struct ShaderManager {
-    shader_cache: FxHashMap<String, Arc<Shader>>,
+    shader_cache: AHashMap<String, Arc<Shader>>,
 }
 
 impl ShaderManager {
     pub fn new() -> Self {
         Self {
-            shader_cache: FxHashMap::default(),
+            shader_cache: AHashMap::default(),
         }
     }
 

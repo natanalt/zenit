@@ -11,6 +11,12 @@ pub mod counter;
 pub mod math;
 pub mod packed;
 
+mod pool;
+pub use pool::*;
+
+mod ascii_display;
+pub use ascii_display::*;
+
 pub mod fnv1a;
 pub use fnv1a::fnv1a_hash;
 pub use fnv1a::Fnv1aHashExt;

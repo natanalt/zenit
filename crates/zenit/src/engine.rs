@@ -19,7 +19,7 @@
 //!    for each phase.
 //!
 
-use crate::{ecs::Universe, render::api::Renderer, assets::root::GameRoot};
+use crate::{ecs::Universe, render::api::Renderer, assets::{root::GameRoot, manager::AssetManager}};
 use log::*;
 use once_cell::sync::OnceCell;
 use parking_lot::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -46,6 +46,7 @@ use std::{
 pub struct GlobalContext {
     pub game_root: GameRoot,
     pub renderer: Option<Arc<Mutex<Renderer>>>,
+    pub asset_manager: Option<Arc<Mutex<AssetManager>>>,
     pub universe: Option<Arc<RwLock<Universe>>>,
 }
 
@@ -54,6 +55,7 @@ impl Default for GlobalContext {
         Self {
             game_root: GameRoot::default(),
             renderer: None,
+            asset_manager: None,
             universe: None,
         }
     }
@@ -65,6 +67,14 @@ impl GlobalContext {
         self.renderer
             .as_ref()
             .expect("renderer not initialized")
+            .lock()
+    }
+
+    /// Shorthand for unwrapping and locking the [`AssetManager`] mutex.
+    pub fn lock_asset_manager(&self) -> MutexGuard<AssetManager> {
+        self.asset_manager
+            .as_ref()
+            .expect("asset manager not initialized")
             .lock()
     }
 
@@ -97,7 +107,7 @@ impl Default for EngineContext {
         Self {
             should_run: AtomicBool::new(true),
             is_running: AtomicBool::new(true),
-            //global_data: FxHashMap::default(),
+            //global_data: AHashMap::default(),
             global_context: RwLock::new(GlobalContext::default()),
         }
     }

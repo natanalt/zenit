@@ -57,6 +57,7 @@ pub enum LevelTextureFormatKind {
     // The formats are derived from texture formats supported by D3D9
     // All entries in this enum are ones I found to be used by texture munge
     // tools, despite Direct3D support waaaay more formats than that
+    
     /// DXT1 (also known as BC1 in wgpu) compressed texture.
     DXT1 = string_as_u32("DXT1"),
     /// DXT3 (also known as BC2 in wgpu) compressed texture.
@@ -118,6 +119,8 @@ impl LevelTextureFormatKind {
 #[ext_repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LevelTextureKind {
+    /// Texture with one face
     Normal = 1,
+    /// Texture with six faces, combined into a cubemap
     Cubemap = 2,
 }

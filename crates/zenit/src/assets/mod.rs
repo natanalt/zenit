@@ -5,3 +5,5 @@
 
 pub mod root;
 pub mod builtin;
+pub mod manager;
+pub mod texture;

@@ -3,7 +3,7 @@ use super::{
     resources::{Camera, Skybox},
 };
 use crate::ecs::{accessor::EntityAccessor, Entity, Universe};
-use rustc_hash::FxHashMap;
+use ahash::AHashMap;
 use std::sync::Arc;
 
 /// Contains all render information for the next frame.
@@ -19,7 +19,7 @@ impl FrameState {
     pub fn from_ecs(universe: &Universe) -> Self {
         let mut screen_target = None;
 
-        let mut scenes: FxHashMap<Entity, FrameScene> = universe
+        let mut scenes: AHashMap<Entity, FrameScene> = universe
             .get_components::<SceneComponent>()
             .map(|(entity, scene)| {
                 (
@@ -37,7 +37,7 @@ impl FrameState {
             // TODO: process the render entity
         }
 
-        let scenes_immutable: FxHashMap<Entity, Arc<FrameScene>> = scenes
+        let scenes_immutable: AHashMap<Entity, Arc<FrameScene>> = scenes
             .into_iter()
             .map(|(entity, scene)| (entity, Arc::new(scene)))
             .collect();
