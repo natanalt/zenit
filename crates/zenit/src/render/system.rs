@@ -1,4 +1,4 @@
-use super::{api::Renderer, frame_state::FrameState, DeviceContext, resources::SkyboxRenderer};
+use super::{DeviceContext, Renderer, frame_state::FrameState};
 use crate::engine::{EngineContext, GlobalContext, System};
 use log::*;
 use parking_lot::Mutex;
@@ -8,14 +8,16 @@ use wgpu::*;
 use winit::window::Window;
 
 pub struct RenderSystem {
+    /// Note, this Arc should never be cloned - only 2/0 strong/weak references are allowed.
+    dc: Arc<DeviceContext>,
+    
     pub window: Arc<Window>,
-    pub dc: Arc<DeviceContext>,
     pub surface: Surface,
     pub sconfig: SurfaceConfiguration,
 
     pub pending_frame: Option<FrameState>,
 
-    pub skybox_renderer: SkyboxRenderer,
+    //pub skybox_renderer: SkyboxRenderer,
 }
 
 impl RenderSystem {
@@ -76,7 +78,7 @@ impl RenderSystem {
         });
 
         trace!("Loading basic resources...");
-        let skybox_renderer = SkyboxRenderer::new(&dc);
+        //let skybox_renderer = SkyboxRenderer::new(&dc);
 
         Self {
             window,
@@ -86,7 +88,7 @@ impl RenderSystem {
             
             pending_frame: None,
 
-            skybox_renderer,
+            //skybox_renderer,
         }
     }
 }
@@ -98,7 +100,7 @@ impl System for RenderSystem {
 
     fn init(&mut self, ec: &mut EngineContext) {
         let gc = ec.global_context.get_mut();
-        gc.renderer = Some(Arc::new(Mutex::new(Renderer::new(self))));
+        gc.renderer = Some(Arc::new(Mutex::new(Renderer::new(self.dc.clone()))));
     }
 
     fn main_process(&mut self, _ec: &EngineContext, _gc: &GlobalContext) {
@@ -113,8 +115,8 @@ impl System for RenderSystem {
         //  - On some GPUs on Linux under Mesa, Vulkan swapchains may randomly timeout. As
         //    a countermeasure, timeouts on Linux do nothing, and just skip the frame, hoping that
         //    the swapchain will go back to working next frame.
-        //    Zenit could check for N timeouts in a row (maybe N=150 in a row), and then panic. For
-        //    now it'll stay like that.
+        //    In the future, Zenit could check for N timeouts in a row (maybe N=150 in a row),
+        //    and then panic. For now it'll keep on ignoring timeouts.
         //
         //    Outside Linux a timeout just causes a panic.
         //    Reference: https://github.com/gfx-rs/wgpu/issues/1218
@@ -153,16 +155,27 @@ impl System for RenderSystem {
 
         let mut encoder = device.create_command_encoder(&Default::default());
 
-        for target in pending_frame.targets {}
+        for (camera, scene) in pending_frame.targets {
+            let resources = camera.gpu_resources.lock();
+            
+            // TODO: actually render something
+            encoder.clear_texture(&resources.texture, &ImageSubresourceRange {
+                aspect: TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+            });
+        }
 
         if let Some(target) = pending_frame.screen_target {
-            let info = target.renderer_info.lock();
+            let info = target.gpu_resources.lock();
             encoder.copy_texture_to_texture(
-                info.target.as_image_copy(),
+                info.texture.as_image_copy(),
                 current_texture.texture.as_image_copy(),
                 Extent3d {
-                    width: info.target.width().min(current_texture.texture.width()),
-                    height: info.target.height().min(current_texture.texture.height()),
+                    width: info.texture.width().min(current_texture.texture.width()),
+                    height: info.texture.height().min(current_texture.texture.height()),
                     depth_or_array_layers: 1,
                 },
             )
@@ -185,7 +198,8 @@ impl System for RenderSystem {
     fn post_process(&mut self, ec: &EngineContext) {
         let gc = ec.global_context.read();
         let uni = gc.read_universe();
+        let renderer = gc.lock_renderer();
 
-        self.pending_frame = Some(FrameState::from_ecs(&uni));
+        self.pending_frame = Some(FrameState::from_ecs(&uni, &renderer));
     }
 }

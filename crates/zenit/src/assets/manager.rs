@@ -1,5 +1,5 @@
 use super::{root::GameRoot, texture::load_level_texture};
-use crate::render::{api::Renderer, resources::Texture2D};
+use crate::render::{Renderer, TextureHandle};
 use ahash::AHashMap;
 use log::*;
 use std::{
@@ -15,18 +15,14 @@ use zenit_utils::{ok, AnyResult, AsciiDisplay};
 pub struct AssetManager {
     pub game_root: GameRoot,
     pub open_files: AHashMap<String, CachedDataFile>,
-    pub textures: AHashMap<String, Arc<Texture2D>>,
+    pub textures: AHashMap<String, TextureHandle>,
 
-    pub error_texture: Arc<Texture2D>,
+    pub error_texture: TextureHandle,
 }
 
 impl AssetManager {
     pub fn new(game_root: GameRoot) -> Self {
-        Self {
-            game_root,
-            open_files: AHashMap::new(),
-            textures: AHashMap::new(),
-        }
+        todo!()
     }
 
     #[inline]
@@ -66,7 +62,7 @@ impl AssetManager {
         ok()
     }
 
-    pub fn get_texture(&mut self, name: &str) -> Arc<Texture2D> {
+    pub fn get_texture(&mut self, name: &str) -> TextureHandle {
         if let Some(texture) = self.textures.get(name) {
             texture.clone()
         } else {
@@ -82,6 +78,11 @@ impl AssetManager {
     pub fn close_open_files(&mut self) {
         self.open_files.clear();
     }
+}
+
+pub struct AssetBundle {
+    name: String,
+    textures: AHashMap<String, TextureHandle>,
 }
 
 pub struct CachedDataFile {

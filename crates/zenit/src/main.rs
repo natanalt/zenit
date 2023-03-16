@@ -66,9 +66,9 @@ pub fn main() -> ! {
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
         let gc = builder.global_context();
         gc.game_root = game_root;
-        gc.asset_manager = Some(Arc::new(Mutex::new(AssetManager::new(
-            gc.game_root.clone(),
-        ))));
+        //gc.asset_manager = Some(Arc::new(Mutex::new(AssetManager::new(
+        //    gc.game_root.clone(),
+        //))));
 
         builder
             .with_system(SceneSystem::new())

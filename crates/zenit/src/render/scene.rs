@@ -1,10 +1,10 @@
 use std::sync::Arc;
-use crate::{ecs::{Entity, Component}, render::resources::Skybox};
+use crate::{ecs::{Entity, Component}};
 
 /// Defines a scene and its basic parameters. Entities with [`RenderComponent`]s link to an entity
 /// with this component.
 pub struct SceneComponent {
-    pub skybox: Arc<Skybox>,
+    //pub skybox: Arc<Skybox>,
 }
 
 impl Component for SceneComponent {}

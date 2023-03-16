@@ -1,6 +1,11 @@
+use std::sync::Arc;
+use zenit_utils::ArcPoolHandle;
 use wgpu::*;
 use glam::*;
 use zenit_proc::ext_repr;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextureHandle(pub(super) ArcPoolHandle);
 
 pub use zenit_lvl::game::texture::LevelTextureKind as TextureKind;
 
@@ -8,17 +13,10 @@ pub use zenit_lvl::game::texture::LevelTextureKind as TextureKind;
 /// 
 /// The texture can be a 1 layered surface, or a 6 layered cubemap. For cubemaps, layers correspond
 /// to different faces of the cube (in order: +X, -X, +Y, -Y, +Z, -Z).
-pub struct Texture2D {
+pub struct TextureResource {
     pub handle: wgpu::Texture,
-    pub view: wgpu::TextureView,
     pub kind: TextureKind,
-}
-
-impl Texture2D {
-    /// Returns the 2D size of this texture
-    pub fn size(&self) -> UVec2 {
-        uvec2(self.handle.width(), self.handle.height())
-    }
+    pub view: Arc<wgpu::TextureView>,
 }
 
 #[ext_repr(u8)]

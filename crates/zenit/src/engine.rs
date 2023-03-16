@@ -19,7 +19,7 @@
 //!    for each phase.
 //!
 
-use crate::{ecs::Universe, render::api::Renderer, assets::{root::GameRoot, manager::AssetManager}};
+use crate::{ecs::Universe, render::Renderer, assets::{root::GameRoot, manager::AssetManager}};
 use log::*;
 use once_cell::sync::OnceCell;
 use parking_lot::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -221,15 +221,16 @@ struct SystemThreadInputs<'a> {
     engine_context: &'a EngineContext,
 }
 
-/// Engine builder, used by the closure provided to [`start`].
+/// Engine builder, given to the closure provided in [`start`]. Provides functionality for setting
+/// up initial engine state.
 ///
-/// ## Lifetimes
+/// ## Internal lifetimes
 /// what a clusterfuck
 ///  * `'init` - encompasses the scope of [`EngineContext`] creation
 ///  * `'scope` - encompasses the [`thread::scope`] scope
 ///  * `'env` - encompasses the engine thread data from outside the [`thread::scope`]
 ///
-/// System threads can only access `'env` data, which over here is just the `input_cell`.
+/// System threads can only reference `'env` data.
 pub struct EngineBuilder<'init, 'scope, 'env> {
     scope: &'scope thread::Scope<'scope, 'env>,
 

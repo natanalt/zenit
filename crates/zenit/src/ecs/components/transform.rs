@@ -1,7 +1,8 @@
-use glam::{Affine3A, Vec3A, Mat4};
+use glam::*;
 use crate::ecs::Component;
 
-/// Represents a 3D entity transform, with a translation and any 3D transformation.
+/// Represents a 3D entity transform, with a translation and any 3D transformation that can be
+/// represented by a 3x3 matrix.
 #[derive(Debug, Clone)]
 pub struct TransformComponent(pub Affine3A);
 
@@ -18,6 +19,12 @@ impl TransformComponent {
     #[inline]
     pub fn as_mat4(&self) -> Mat4 {
         self.0.into()
+    }
+
+    /// Extracts the rotation out of this transform.
+    #[inline]
+    pub fn rotation(&self) -> Quat {
+        Quat::from_affine3(&self.0)
     }
 
     /// Adds the provided vector to this transform's translation.

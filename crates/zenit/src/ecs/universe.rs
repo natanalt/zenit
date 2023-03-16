@@ -1,4 +1,4 @@
-use crate::render::components::*;
+use crate::render::*;
 use super::accessor::EntityAccessor;
 use super::{Component, components::*, Entity};
 use paste::paste;
@@ -62,7 +62,7 @@ impl Universe {
         self.free_indices.extend(new_indices.rev());
     }
 
-    pub fn get_components<T: RegisteredComponent>(&self) -> impl Iterator<Item = (Entity, &T)> {
+    pub fn get_components<T: RegisteredComponent>(&self) -> impl Iterator<Item = (EntityAccessor, &T)> {
         self.get_component_vec::<T>()
             .backend
             .iter()
@@ -70,9 +70,12 @@ impl Universe {
             .filter_map(|(index, component)| {
                 let generation = self.generations[index].unwrap();
                 Some((
-                    Entity {
-                        index: index as u32,
-                        generation,
+                    EntityAccessor {
+                        universe: self,
+                        entity: Entity {
+                            index: index as u32,
+                            generation,
+                        },
                     },
                     component.as_ref()?,
                 ))

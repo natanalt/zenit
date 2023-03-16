@@ -89,8 +89,7 @@ impl FromConfigValue for f32 {
     fn get(data: &ConfigData, idx: u32) -> Option<Self> {
         data.values.get(idx as usize).map(|raw| {
             // Reinterpret the value as a float
-            // It should be safe
-            unsafe { std::mem::transmute::<u32, f32>(*raw) }
+            f32::from_bits(*raw)
         })
     }
 }

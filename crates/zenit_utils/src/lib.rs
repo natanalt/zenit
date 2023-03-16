@@ -14,6 +14,9 @@ pub mod packed;
 mod pool;
 pub use pool::*;
 
+mod arc_pool;
+pub use arc_pool::*;
+
 mod ascii_display;
 pub use ascii_display::*;
 
