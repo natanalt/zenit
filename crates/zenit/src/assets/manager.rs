@@ -7,7 +7,6 @@ use std::{
     fs::{File, OpenOptions},
     sync::Arc,
 };
-use winapi::um::winnt::FILE_SHARE_READ;
 use zenit_lvl::{game::LevelData, FromNode};
 use zenit_utils::{ok, AnyResult, AsciiDisplay};
 
@@ -100,6 +99,7 @@ impl CachedDataFile {
         {
             // On Windows, set up the share flags so that other processes can open the file,
             // but not modify it.
+            use winapi::um::winnt::FILE_SHARE_READ;
             use std::os::windows::fs::OpenOptionsExt;
             options.share_mode(FILE_SHARE_READ);
         }
