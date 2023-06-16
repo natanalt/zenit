@@ -5,16 +5,11 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[clap(name = "Zenit Engine", about)]
 pub struct Args {
-    #[clap(
-        long,
-        short = 'r',
-        help = "Overrides the path to SWBF2's game root (with a `GameData` \
-                directory). On Windows, Zenit attempts to automatically detect \
-                it. If none is available, user will be prompted for it after \
-                start."
-    )]
+    #[clap(long, short = 'r')]
+    /// Overrides the path to SWBF2's game root (with a `GameData` directory).
     pub game_root: Option<PathBuf>,
 
-    #[clap(long, help = "Forces the engine to run singlethreaded")]
-    pub singlethreaded: bool,
+    #[clap(long)]
+    /// Forces the engine to run singlethreaded. You should generally keep this off.
+    pub single_thread: bool,
 }

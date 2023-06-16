@@ -6,9 +6,21 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+zenit_lvl_proc.workspace = true
 zenit_proc.workspace = true
 zenit_utils.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 byteorder.workspace = true
 bitflags.workspace = true
+ahash.workspace = true
+glam.workspace = true
+
+# These are imported for certain derives
+# TODO: make serde and clap feature-specific dependencies in zenit_lvl
+serde.workspace = true
+clap.workspace = true
+
+[features]
+default = ["zenit_extensions"]
+zenit_extensions = []

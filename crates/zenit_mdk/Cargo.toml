@@ -1,0 +1,21 @@
+[package]
+name = "zenit_mdk"
+description = "Packer and unpacker for Star Wars Battlefront II (2005) game files"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+zenit_lvl.workspace = true
+zenit_utils.workspace = true
+
+anyhow.workspace = true
+thiserror.workspace = true
+byteorder.workspace = true
+clap.workspace = true
+wild.workspace = true
+image.workspace = true
+texpresso.workspace = true
+serde.workspace = true
+toml.workspace = true
+itertools.workspace = true

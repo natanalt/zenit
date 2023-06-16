@@ -41,7 +41,7 @@ pollster.workspace = true
 chrono.workspace = true
 clap.workspace = true
 smallvec.workspace = true
-ahash.workspace = true # TODO: replace with ahash
+ahash.workspace = true
 once_cell.workspace = true
 winit.workspace = true
 glam.workspace = true
@@ -52,11 +52,17 @@ crossbeam.workspace = true
 parking_lot.workspace = true
 include_dir.workspace = true
 paste.workspace = true
+#image.workspace = true
+itertools.workspace = true
+egui.workspace = true
+egui-winit.workspace = true
+egui-wgpu.workspace = true
 
 [build-dependencies]
 derive_builder.workspace = true
 vergen.workspace = true
 embed-resource.workspace = true
+zenit_mdk.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 # TODO: replace winapi with the windows crate

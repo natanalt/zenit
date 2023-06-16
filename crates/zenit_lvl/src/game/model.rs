@@ -1,9 +1,14 @@
-use crate::LazyData;
+use crate::node::{LazyData, NodeData};
 use bitflags::bitflags;
-use std::ffi::CString;
-use zenit_proc::{ext_repr, FromNode, PackedParser};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use std::{
+    ffi::CString,
+    io::{Read, Write},
+};
+use zenit_proc::{ext_repr, PackedData};
+use zenit_utils::{ok, packed::PackedData, AnyResult};
 
-#[derive(Debug, Clone, FromNode)]
+#[derive(Debug, Clone, NodeData)]
 pub struct LevelModel {
     #[node("NAME")]
     pub name: CString,
@@ -21,7 +26,7 @@ pub struct LevelModel {
 
 /// Proceed with caution, the layout may not be what it appears to be.
 /// Or maybe it's all correct, I have no clue
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct ModelInfo {
     pub unknown0x00: u32,
     pub unknown0x04: u32,
@@ -33,7 +38,7 @@ pub struct ModelInfo {
     pub face_count: u32,  // ?
 }
 
-#[derive(Debug, Clone, FromNode)]
+#[derive(Debug, Clone, NodeData)]
 pub struct ModelSegment {
     #[node("INFO")]
     pub info: ModelInfo,
@@ -53,16 +58,16 @@ pub struct ModelSegment {
     pub bone_map_name: CString,
 }
 
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct ModelSegmentInfo {
-    #[from(u32)]
     pub topology: ModelSegmentTopology,
     pub vertex_count: u32,
     pub primitive_count: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, PackedData)]
 #[ext_repr(u32)]
-#[derive(Debug, Clone, PartialEq)]
+#[parse_as(u32)]
 pub enum ModelSegmentTopology {
     PointList = 1,
     LineList = 2,
@@ -72,9 +77,8 @@ pub enum ModelSegmentTopology {
     TriangleFan = 6,
 }
 
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct ModelMaterial {
-    #[from(u32)]
     pub flags: MaterialFlags,
     pub diffuse_color: [u8; 4],
     pub specular_color: [u8; 4],
@@ -86,7 +90,7 @@ pub struct ModelMaterial {
 bitflags! {
     pub struct MaterialFlags: u32 {
         const NORMAL = 1 << 0;
-        const HARDEDGED = 1 << 1;
+        const HARD_EDGED = 1 << 1;
         const TRANSPARENT = 1 << 2;
         const GLOSS_MAP = 1 << 3;
         const GLOW = 1 << 4;
@@ -104,26 +108,38 @@ bitflags! {
     }
 }
 
+// TODO: derive PackedDa for bitflags generated types
+impl PackedData for MaterialFlags {
+    fn read_packed<R: Read>(r: &mut R) -> AnyResult<Self> {
+        Ok(r.read_u32::<LE>()?.into())
+    }
+
+    fn write_packed<W: Write>(&self, w: &mut W) -> AnyResult {
+        w.write_u32::<LE>(self.bits())?;
+        ok()
+    }
+}
+
 impl From<u32> for MaterialFlags {
     fn from(value: u32) -> Self {
         Self::from_bits_truncate(value)
     }
 }
 
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct ModelTextureName {
     pub index: u32,
     pub name: CString,
 }
 
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct ModelSegmentAABB {
     pub min: [f32; 3],
     pub max: [f32; 3],
 }
 
 /// No idea what this does, I assume the layout is supposed to mean that
-#[derive(Debug, Clone, PackedParser)]
+#[derive(Debug, Clone, PackedData)]
 pub struct LevelModelSphere {
     pub position: [f32; 3],
     pub radius: f32,

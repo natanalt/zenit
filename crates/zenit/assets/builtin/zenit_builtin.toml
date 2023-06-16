@@ -1,0 +1,16 @@
+# Specification file for Zenit built-in assets
+# To be used with `zenit_mdk build`
+
+[[textures]]
+name = "zenit_error"
+kind = "Color"
+file = "textures/zenit_error.png"
+formats = ["DXT1"]
+mipmaps = 1
+
+[[textures]]
+name = "zenit_prototype_skybox"
+kind = "Cubemap"
+faces = "Repeated"
+file = "textures/zenit_prototype_skybox.png"
+formats = ["DXT1"]

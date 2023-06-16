@@ -1,9 +1,11 @@
 use std::{
+    hash::{Hash, Hasher},
+    mem,
     num::NonZeroU32,
-    sync::{Arc, Weak}, hash::{Hash, Hasher},
+    sync::{Arc, Weak},
 };
 
-/// Handle to an 
+/// Handle to an element in an arc pool
 #[derive(Debug, Clone)]
 pub struct ArcPoolHandle(Arc<u32>);
 
@@ -25,8 +27,9 @@ impl Hash for ArcPoolHandle {
 ///
 /// Similarly to the generic [`crate::Pool`], this allows to store a set of `T` elements, and
 /// access them via specific handles. The difference is that handles in `ArcPool` are backed
-/// internally by an [`Arc`]. Once the reference counted value dies, its space can be reclaimed
-/// (which is done automatically, or manually via [`Self::collect_garbage`]).
+/// internally by an [`Arc`]. Once the reference counted value dies, its slot can be reclaimed
+/// (which is done automatically when needed during allocation, or manually via
+/// [`Self::collect_garbage`]).
 pub struct ArcPool<T> {
     free_indices: Vec<u32>,
     values: Vec<Option<(Weak<u32>, T)>>,
@@ -68,7 +71,7 @@ impl<T> ArcPool<T> {
     }
 
     /// Returns an immutable reference to an element through its handle.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the handle is invalid (points to an invalid index or a dead element, which
     /// may happen when handles from different pools are mixed up)
@@ -83,7 +86,7 @@ impl<T> ArcPool<T> {
     }
 
     /// Returns a mutable reference to an element through its handle.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the handle is invalid (points to an invalid index or a dead element, which
     /// may happen when handles from different pools are mixed up)
@@ -95,6 +98,10 @@ impl<T> ArcPool<T> {
             .as_mut()
             .expect("invalid dead value in a live arc pool reference")
             .1
+    }
+
+    pub fn set(&mut self, handle: &ArcPoolHandle, value: T) -> T {
+        mem::replace(self.get_mut(handle), value)
     }
 
     /// Drops any values without live references, freeing up their indices.

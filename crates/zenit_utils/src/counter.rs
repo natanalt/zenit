@@ -1,4 +1,4 @@
-//! A forever rising, global counter.
+//! A forever rising, thread-safe global counter.
 //! Useful if you want to generate numbers from a source that will never repeat
 
 use std::sync::atomic::{AtomicU64, Ordering};

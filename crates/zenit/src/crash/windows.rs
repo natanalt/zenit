@@ -25,9 +25,10 @@ compile_error!("Windows crash handler can only be compiled for Windows targets")
 // TODO: make the crash handler window resizable
 // TODO: make the GitHub issue tracker link an actual clickable link
 // TODO: make the header ""jokes"" properly get randomized (what a feature!)
+// TODO: enable keyboard control of the window (like tab for focus)
 
 // i'm such a comedian
-const HEADERS: &[&'static str] = &[
+const _HEADERS: &[&'static str] = &[
     "Well this is awkward *laugh track*",
     "here is a wacky randomized error message",
     "something fucked up",
@@ -224,7 +225,8 @@ macro_rules! verify_window_creation {
     }};
 }
 
-static SHOULD_COPY: AtomicBool = AtomicBool::new(false);
+/// Set to `true` in the handler's proc function, read by its message loop
+static SHOULD_COPY_ERROR_LOG: AtomicBool = AtomicBool::new(false);
 
 pub fn set_panic_hook() {
     // Safety: maybe
@@ -440,13 +442,13 @@ pub fn set_panic_hook() {
             TranslateMessage(&msg as _);
             DispatchMessageW(&msg as _);
 
-            if SHOULD_COPY.load(Ordering::SeqCst) {
+            if SHOULD_COPY_ERROR_LOG.load(Ordering::SeqCst) {
                 OpenClipboard(window);
                 EmptyClipboard();
                 SetClipboardData(CF_UNICODETEXT, error_log as _);
                 CloseClipboard();
 
-                SHOULD_COPY.store(false, Ordering::SeqCst);
+                SHOULD_COPY_ERROR_LOG.store(false, Ordering::SeqCst);
             }
         }
 
@@ -470,7 +472,7 @@ unsafe extern "system" fn window_proc(
 ) -> LRESULT {
     match msg {
         WM_COMMAND if wparam == BUTTON_COPY as _ => {
-            SHOULD_COPY.store(true, Ordering::SeqCst);
+            SHOULD_COPY_ERROR_LOG.store(true, Ordering::SeqCst);
             1
         }
         WM_COMMAND if wparam == BUTTON_OK as _ => {

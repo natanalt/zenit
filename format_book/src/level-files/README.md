@@ -1,0 +1,2 @@
+# Level File Format (.lvl)
+This chapter contains documentation of the level file format used by Battlefront II. This format (also referred to as UCF, UFCB, UCFT by the official modding tools) is used to store the vast majority of in-game assets, including textures, models, Lua scripts, arbitrary properties, worlds (maps), and anything else.

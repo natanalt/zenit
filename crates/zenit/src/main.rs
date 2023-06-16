@@ -3,14 +3,9 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{
-    assets::{manager::AssetManager, root::GameRoot},
-    render::system::RenderSystem,
-    scene::system::SceneSystem,
-};
+use crate::{assets::GameRoot, graphics::system::RenderSystem, scene::system::SceneSystem};
 use clap::Parser;
 use log::*;
-use parking_lot::Mutex;
 use std::sync::{atomic::Ordering, Arc};
 use winit::{dpi::LogicalSize, event::*, event_loop::*, window::WindowBuilder};
 
@@ -19,10 +14,11 @@ pub mod crash;
 
 pub mod assets;
 pub mod cli;
-pub mod ecs;
+pub mod devui;
 pub mod engine;
+pub mod entities;
+pub mod graphics;
 pub mod platform;
-pub mod render;
 pub mod scene;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -46,8 +42,8 @@ pub fn main() -> ! {
     #[cfg(feature = "crash-handler")]
     crash::enable_panic_handler();
 
-    if args.singlethreaded {
-        // TODO: --singlethreaded support
+    if args.single_thread {
+        // TODO: --single-thread support
         warn!("Singlethreaded engine execution is not yet supported");
     }
 
@@ -64,15 +60,14 @@ pub fn main() -> ! {
 
     let captured_window = window.clone();
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
-        let gc = builder.global_context();
-        gc.game_root = game_root;
-        //gc.asset_manager = Some(Arc::new(Mutex::new(AssetManager::new(
-        //    gc.game_root.clone(),
-        //))));
+        let gc = builder.global_state();
+        gc.add_any(game_root);
+        gc.add_any(captured_window.clone());
+        let window = captured_window.clone();
 
         builder
-            .with_system(SceneSystem::new())
-            .with_system(RenderSystem::new(captured_window));
+            .with_system(RenderSystem::new(captured_window))
+            .with_system(SceneSystem::new(window));
     });
 
     let mut engine_thread_handle = Some(engine_thread_handle);
@@ -109,7 +104,12 @@ pub fn main() -> ! {
                 warn!("Scale factor changed to {scale_factor}, the engine doesn't handle this yet");
             }
 
-            event => {}
+            event => {
+                engine_context
+                    .window_events
+                    .lock()
+                    .push(event.to_static().unwrap());
+            }
         },
 
         Event::MainEventsCleared => {}

@@ -1,8 +1,7 @@
-use crate::LazyData;
+use crate::node::{LazyData, NodeData};
 use std::ffi::CString;
-use zenit_proc::FromNode;
 
-#[derive(Debug, Clone, FromNode)]
+#[derive(Debug, Clone, NodeData)]
 pub struct LevelScript {
     #[node("NAME")]
     pub name: CString,

@@ -47,18 +47,15 @@ The project is separated into multiple crates in the [crates](crates/) directory
  * [**crates/zenit_lua**](crates/zenit_lua/) - Lua 5.0.2 bindings and a custom architecture independent x86-32 chunk loader
  * [**crates/zenit_utils**](crates/zenit_utils/) - general utilities and shared code
  * [**crates/zenit_proc**](crates/zenit_proc/) - engine-wide proc macros
-
-Stuff that's not currently there but may be added in the future:
- * **crates/zenit_mdk** - mod development kit, aka. an executable for generating munge files 
+ * [**crates/zenit_mdk**](crates/zenit_mdk/) - mod development kit, a utility for generating level files
+ * [**crates/crevice**](crates/crevice/) - temporary fork of crevice, for keeping up with `glam` updates. Will eventually be removed.
 
 ### Format reference book
-The directory **format_book/** contains [mdBook](https://github.com/rust-lang/mdBook)-based documentation for Battlefront II's file formats. It's better served there, than in random comments in the project. It's not yet automatically deployed online.
+The directory **format_book/** contains [mdBook](https://github.com/rust-lang/mdBook)-based documentation for Battlefront II's file formats and the engine in general. It's not yet automatically deployed online.
 
 If you have mdBook installed (`cargo install mdbook`) you can also run `mdbook serve` from the format book's directory, to host a local HTTP server with a pretty, viewable version of the documentation.
 
 ## License stuff
 No license attached here yet; I'll add one someday lol (that does technically make the game not actually open-source, but come on)
-
-At this point, the project comes with Lua 5.0.2, see [`src/zenit_lua/lua/COPYRIGHT`] for details.
 
 Also, of course, I am not affiliated with the late Pandemic Studios, Disney or any other legal entities or individuals that may hold any rights to the original game, or the entire Star Wars franchise. This is merely a fan project to a game I feel a lot of nostalgia for. It doesn't enable piracy, and it never will.

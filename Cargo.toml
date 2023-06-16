@@ -12,9 +12,15 @@ authors = ["Natalia Cholewa <natanalt@proton.me>"]
 
 [workspace.dependencies]
 zenit_lvl = { path = "crates/zenit_lvl" }
+zenit_lvl_proc = { path = "crates/zenit_lvl_proc" }
 zenit_proc = { path = "crates/zenit_proc" }
 zenit_lua = { path = "crates/zenit_lua" }
 zenit_utils = { path = "crates/zenit_utils" }
+zenit_mdk = { path = "crates/zenit_mdk" }
+
+crevice = { path = "crates/crevice", features = ["glam"] }
+
+# Fun fact: a lot of these should be evenutally cleaned up
 
 anyhow = "1"
 thiserror = "1"
@@ -25,13 +31,12 @@ derive_builder = "0"
 toml = "0"
 pollster = "0"
 chrono = "0"
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 smallvec = { version = "1", features = ["const_generics"] }
 ahash = { version = "0", features = ["std"] }
 once_cell = "1"
 winit = "0"
-glam = "0.22" # TODO: untie glam from 0.22 (downgraded glam to 0.22 from 0.23, as crevice depends on it)
-crevice = { version = "0", features = ["glam"] }
+glam = "0"
 wgpu = { version = "0" }
 sealed = "0"
 ordered-float = "3"
@@ -41,6 +46,15 @@ crossbeam = "0"
 rayon = "1"
 include_dir = "0"
 paste = "1"
+image = { version = "0", features = ["png"], default-features = false }
+wild = "2"
+texpresso = "2" # TODO: replace with own solution for packaging DXT/BC/S3 compression
+serde = { version = "1", features = ["derive"] }
+itertools = "0"
+
+egui = "0"
+egui-winit = "0"
+egui-wgpu = "0"
 
 # The `alloc` feature is necessary for Arc<Window> implementation.
 raw-window-handle = { version = "0", features = ["alloc"] }

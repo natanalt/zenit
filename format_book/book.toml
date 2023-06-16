@@ -1,7 +1,7 @@
 [book]
-title = "Zenit's Data Format Book"
+title = "Zenit Developer's Documentation"
 authors = ["Natalia Cholewa"]
-description = "Documentation for Battlefront 2's data formats"
+description = "Simple high level docs for Zenit Engine things"
 
 language = "en"
 multilingual = false

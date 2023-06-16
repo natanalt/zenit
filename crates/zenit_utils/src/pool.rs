@@ -13,23 +13,23 @@ pub struct PoolHandle {
 /// Generic pool implementation. Allocates values of type `T`, and allows accessing them via
 /// dedicated handles. The handles include 32-bit index and generation counts, the latter
 /// being used as a simple use-after-free test.
-/// 
+///
 /// Note, this implementation isn't panic-proof. There are some conditions that can cause panics:
 ///  * overflowing the 32-bit index counter
 ///  * overflowing the 32-bit generation counter (reached after allocating over 4 294 967 294
 ///    entries total)
 ///  * improper handle accesses in `get` or `get_mut` (`try_*` variants exist)
-/// 
+///
 /// ## Example
 /// ```
 /// # use zenit_utils::Pool;
-/// 
+///
 /// let mut pool: Pool<u32> = Pool::new();
-/// 
+///
 /// // Allocate a new pool element with a value of 10
 /// let handle = pool.allocate(10);
 /// assert_eq!(*pool.get(handle), 10);
-/// 
+///
 /// // Deallocate it - the handle becomes invalid
 /// pool.deallocate(handle);
 /// assert!(pool.try_get(handle).is_none());
@@ -60,7 +60,7 @@ impl<T> Pool<T> {
     }
 
     /// Allocates a new pool entry, fills it with `value`, and returns its handle.
-    /// 
+    ///
     /// ## Panics
     ///  * On 32-bit index overflow
     ///  * On 32-bit generation overflow
@@ -94,7 +94,7 @@ impl<T> Pool<T> {
     }
 
     /// Deallocates a specified pool entry, dropping the held value.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the handle is invalid.
     pub fn deallocate(&mut self, handle: PoolHandle) {
@@ -105,7 +105,7 @@ impl<T> Pool<T> {
     }
 
     /// Returns an immutable reference to a specified pool entry.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the handle is invalid.
     pub fn get(&self, handle: PoolHandle) -> &T {
@@ -120,7 +120,7 @@ impl<T> Pool<T> {
     }
 
     /// Returns a mutable reference to a specified pool entry.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the handle is invalid.
     pub fn get_mut(&mut self, handle: PoolHandle) -> &mut T {
@@ -144,7 +144,7 @@ impl<T> Pool<T> {
     }
 
     /// Counts how many pool entries are occupied.
-    /// 
+    ///
     /// This is a fairly expensive operation, as it linearly scans all entries.
     pub fn count_allocated(&self) -> u32 {
         self.generations

@@ -1,6 +1,6 @@
 //! Various utilities used by the various code
 
-// TODO: clean up zenit_utils
+// TODO: clean up zenit_utils, there's a TON of stuff that *used* to be used.
 
 use byteorder::{NativeEndian, WriteBytesExt};
 use std::io::Cursor;
@@ -11,6 +11,10 @@ pub mod counter;
 pub mod math;
 pub mod packed;
 
+pub mod fnv1a;
+pub use fnv1a::fnv1a_hash;
+pub use fnv1a::Fnv1aHashExt;
+
 mod pool;
 pub use pool::*;
 
@@ -19,10 +23,6 @@ pub use arc_pool::*;
 
 mod ascii_display;
 pub use ascii_display::*;
-
-pub mod fnv1a;
-pub use fnv1a::fnv1a_hash;
-pub use fnv1a::Fnv1aHashExt;
 
 mod cell_ext;
 pub use cell_ext::RefCellExt;
@@ -36,16 +36,17 @@ pub use mutex_ext::MutexExt;
 mod thread_cell;
 pub use thread_cell::ThreadCell;
 
-pub type AnyResult<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
+mod result_ext;
+pub use result_ext::*;
+
+mod seekable_take;
+pub use seekable_take::*;
+
+pub type AnyResult<T = (), E = anyhow::Error> = Result<T, E>;
 
 /// Shorthand for `Ok(())`, cause it looks ugly
 pub const fn ok<E>() -> Result<(), E> {
     Ok(())
-}
-
-/// Shorthand for `Default::default()` and such
-pub fn default_fn<T: Default>() -> T {
-    T::default()
 }
 
 /// Aligns the value. Alignment doesn't have to be a power of two.
@@ -56,27 +57,6 @@ pub fn default_fn<T: Default>() -> T {
 /// ```
 pub const fn align(n: u64, a: u64) -> u64 {
     (n + a - 1) / a * a
-}
-
-/// Converts a 4-byte string into a u32 (little endian)
-///
-/// ## Example
-/// ```
-/// use zenit_utils::string_as_u32;
-/// assert_eq!(string_as_u32("DXT3"), 0x33545844);
-/// ```
-pub const fn string_as_u32(s: &str) -> u32 {
-    if s.len() == 4 {
-        let bytes = s.as_bytes();
-        let mut result = 0u32;
-        result |= (bytes[0] as u32) << 0;
-        result |= (bytes[1] as u32) << 8;
-        result |= (bytes[2] as u32) << 16;
-        result |= (bytes[3] as u32) << 24;
-        result
-    } else {
-        panic!("Invalid string length");
-    }
 }
 
 pub fn pack_floats(buffer: &[f32]) -> Vec<u8> {
@@ -92,34 +72,8 @@ pub fn pack_floats(buffer: &[f32]) -> Vec<u8> {
 
 /// Used by the [`zenit_proc::ext_repr`] proc macro
 #[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum EnumParseError {
-    #[error("invalid input")]
-    InvalidInput,
-}
-
-/// Generates a match statement that verifies a discriminant value as a single "expression".
-///
-/// ## Example
-/// ```
-/// # use zenit_utils::discriminant_matches;
-/// enum Example { Simple, Tupled(u32) }
-///
-/// let a = Example::Simple;
-/// assert!(discriminant_matches!(a, Example::Simple));
-///
-/// // Tupled variants must match the parameters. Don't name them to not get warnings.
-/// let b = Example::Tupled(123);
-/// assert!(discriminant_matches!(b, Example::Tupled(_)));
-/// ```
-#[macro_export]
-macro_rules! discriminant_matches {
-    ($value:expr, $discriminant:pat) => {
-        match $value {
-            $discriminant => true,
-            _ => false,
-        }
-    };
-}
+#[error("invalid input")]
+pub struct EnumParseError;
 
 /// https://users.rust-lang.org/t/can-i-conveniently-compile-bytes-into-a-rust-program-with-a-specific-alignment/24049/2
 #[macro_export]
@@ -140,23 +94,27 @@ macro_rules! include_bytes_align_as {
     }};
 }
 
-/// Includes a file into the program as a `&'static` slice of given type,
-/// with guaranteed proper alignments.
+/// Generator of `as_something` functions for enum implementations and containers of enums.
+///
+/// It's a bit weird in usage due to Rust's oddities, but you should grasp how it's used based on
+/// existing usage (recommend using a code editor with a language server for listing these).
 #[macro_export]
-macro_rules! include_bytes_as {
-    ($target_ty:ty, $path:expr) => {{
-        let size = ::std::mem::size_of::<$target_ty>();
-
-        let bytes = $crate::include_bytes_align_as!($target_ty, $path);
-        if bytes.len() % size != 0 {
-            // Ideally this should be a compile error
-            panic!("File doesn't evenly fit needed type");
+macro_rules! enum_getters {
+    (
+        $Type:ty, $value:expr, $self:ident,
+        $(
+            { $name:ident => $pattern:pat, $pattern_capture:expr => $Return:ty }
+        )*
+    ) => {
+        impl $Type {
+            $(
+                pub fn $name(&$self) -> Option<&$Return> {
+                    match $value {
+                        $pattern => Some($pattern_capture),
+                        _ => None,
+                    }
+                }
+            )*
         }
-
-        let result: &'static [$target_ty] = unsafe {
-            ::std::slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / size)
-        };
-
-        result
-    }};
+    }
 }
