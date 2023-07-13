@@ -1,6 +1,6 @@
 use super::{
     CameraComponent, CameraGpuResources, RenderComponent, Renderer, SceneComponent,
-    SkyboxGpuResources,
+    SkyboxGpuResources, imgui_renderer::ImguiRenderData,
 };
 use crate::entities::{components::TransformComponent, Entity, EntityAccessor, Universe};
 use ahash::AHashMap;
@@ -9,23 +9,22 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use zenit_utils::math::Radians;
 
-/// Standalone\* frame snapshot that can be used by the render system.
+/// Standalone[1] frame snapshot that can be used by the render system.
 ///
-/// \* Well, *technically* it includes shared references to GPU resources, but those aren't
+/// [1] Well, *technically* it includes shared references to GPU resources, but those aren't
 /// to be exposed to main game code anyway.
 pub struct FrameState {
-    /// Handle to the camera that'll be rendered on the screen.
-    pub screen_target: Option<CameraState>,
     /// Linear list of cameras and scenes they should render
     pub targets: Vec<(CameraState, Arc<FrameScene>)>,
+    /// The ImGui frame information. This is what is rendered on the window if present.
+    pub imgui_frame: Option<ImguiRenderData>,
 }
 
 impl FrameState {
     /// Collects a frame snapshot from the ECS.
     ///
     /// This is a slightly expensive operation, done once a frame.
-    pub fn from_ecs(universe: &Universe, renderer: &Renderer) -> Self {
-        let mut screen_target = None;
+    pub fn collect_state(universe: &Universe, renderer: &mut Renderer) -> Self {
 
         // Temporary storage of scenes, mapping each scene entity to its FrameScene instance
         let mut scene_map: AHashMap<Entity, Arc<FrameScene>> = universe
@@ -56,18 +55,8 @@ impl FrameState {
             .get_components::<CameraComponent>()
             .filter(|(_, cc)| cc.enabled)
             .map(|(accessor, cc)| {
-                let camera_state = CameraState::from_ecs(accessor, renderer);
-
-                if cc.render_to_screen {
-                    assert!(
-                        screen_target.is_none(),
-                        "multiple render to screen cameras are active"
-                    );
-                    screen_target = Some(camera_state.clone());
-                }
-
                 (
-                    camera_state,
+                    CameraState::from_ecs(accessor, renderer),
                     scene_map
                         .get(&cc.scene_entity)
                         .expect("camera has an invalid scene entity handle")
@@ -77,8 +66,8 @@ impl FrameState {
             .collect();
 
         Self {
-            screen_target,
             targets,
+            imgui_frame: renderer.imgui_frame.take().map(|frame| frame.draw_data),
         }
     }
 }
@@ -102,7 +91,7 @@ impl CameraState {
         let camera_component: &CameraComponent = entity
             .get_component()
             .expect("missing CameraComponent in a camera");
-        let camera = renderer.get_camera(&camera_component.camera_handle);
+        let camera = renderer.cameras.get(&camera_component.camera_handle);
 
         Self {
             position: transform.translation(),
@@ -128,7 +117,7 @@ impl FrameScene {
             skybox_resources: scene
                 .skybox
                 .as_ref()
-                .and_then(|skybox| Some(renderer.get_skybox(skybox).gpu_resources.clone())),
+                .and_then(|skybox| Some(renderer.skyboxes.get(skybox).gpu_resources.clone())),
         }
     }
 }

@@ -1,11 +1,14 @@
 use super::ZENIT_BUILTIN_LVL;
-use crate::{assets::asset_loader::texture_loader::LoadedTexture, scene::EngineBorrow};
+use crate::{
+    assets::{shader_loader::load_shader_as_asset, texture_loader::load_texture_as_asset},
+    scene::EngineBorrow,
+};
 use log::*;
 use std::io::{Cursor, Read, Seek};
-use texture_loader::load_texture;
 use zenit_lvl::node::{read_node_children, read_node_header};
 use zenit_utils::{ok, AnyResult};
 
+pub mod shader_loader;
 pub mod texture_loader;
 
 pub struct AssetLoader<'a> {
@@ -24,28 +27,10 @@ impl<'a> AssetLoader<'a> {
         let children = read_node_children(&mut r, header)?;
 
         for child in children {
+            // For clarity, keep the loader invocations as one-liners.
             match child.name.as_bytes() {
-                // TODO: move this entire match arm into texture_loader.rs
-                b"tex_" => {
-                    let (name, texture) = match load_texture(&mut r, child, self.engine) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            error!("An error occurred while loading a texture: {e:#?}");
-                            continue;
-                        }
-                    };
-
-                    match texture {
-                        LoadedTexture::Texture(texture) => {
-                            trace!("Loaded texture `{name}`...");
-                            self.engine.assets.textures.insert(name, texture);
-                        }
-                        LoadedTexture::Cubemap(cubemap) => {
-                            trace!("Loaded cubemap `{name}`...");
-                            self.engine.assets.cubemaps.insert(name, cubemap);
-                        }
-                    }
-                }
+                b"tex_" => load_texture_as_asset((&mut r, child), self.engine),
+                b"WGSL" => load_shader_as_asset((&mut r, child), self.engine),
                 _ => {}
             }
         }

@@ -1,5 +1,5 @@
 use crate::entities::{Component, Entity};
-use crate::graphics::DeviceContext;
+use crate::graphics::{DeviceContext, Renderer};
 use crevice::std140::AsStd140;
 use glam::*;
 use parking_lot::Mutex;
@@ -27,13 +27,13 @@ pub struct CameraResource {
 }
 
 impl CameraResource {
-    pub fn new(dc: &DeviceContext, desc: &CameraDescriptor) -> Self {
+    pub fn new(r: &mut Renderer, desc: &CameraDescriptor) -> Self {
         Self {
             fov: desc.fov,
             near_plane: desc.near_plane,
             far_plane: desc.far_plane,
             texture_size: desc.texture_size,
-            gpu_resources: Arc::new(Mutex::new(CameraGpuResources::new(dc, desc))),
+            gpu_resources: Arc::new(Mutex::new(CameraGpuResources::new(&r.dc, desc))),
         }
     }
 }
@@ -149,15 +149,10 @@ impl CameraBuffer {
 }
 
 // TODO: what happens if multiple CameraComponents link to the same camera resource?
-// TODO: what happens if the render_to_screen camera has a size different from the framebuffer?
-// Neither of these scenarios should happen in normal gameplay, but they still can safely happen
 
 pub struct CameraComponent {
     /// If true, this camera will be rendered to.
     pub enabled: bool,
-    /// If true, this camera will be rendered on the screen. Only one enabled camera can render
-    /// to the screen at once.
-    pub render_to_screen: bool,
     /// Underlying camera resource to render to
     pub camera_handle: CameraHandle,
     /// Target entity with a [`crate::graphics::SceneComponent`].

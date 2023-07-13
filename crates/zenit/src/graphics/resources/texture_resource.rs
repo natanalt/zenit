@@ -1,4 +1,4 @@
-use crate::graphics::{DeviceContext, Renderer};
+use crate::graphics::Renderer;
 use glam::*;
 use std::sync::Arc;
 use wgpu::TextureFormat;
@@ -14,17 +14,18 @@ pub struct TextureResource {
     pub format: wgpu::TextureFormat,
     /// The resource's primary texture view. Defined as an Arc to allow copying it to the render system.
     pub view: Arc<wgpu::TextureView>,
+    pub unfiltered: bool,
 }
 
 impl TextureResource {
-    pub fn new(dc: &DeviceContext, desc: &TextureDescriptor) -> Self {
+    pub fn new(r: &mut Renderer, desc: &TextureDescriptor) -> Self {
         // TODO: perhaps the power of 2 texture size limitation could be lifted
         debug_assert!(
             desc.size.x.is_power_of_two() && desc.size.y.is_power_of_two(),
             "Texture dimensions must be powers of 2"
         );
 
-        let handle = dc.device.create_texture(&wgpu::TextureDescriptor {
+        let handle = r.dc.device.create_texture(&wgpu::TextureDescriptor {
             label: Some(&desc.name),
             size: wgpu::Extent3d {
                 width: desc.size.x,
@@ -55,6 +56,7 @@ impl TextureResource {
             format: desc.format,
             handle,
             view,
+            unfiltered: desc.unfiltered,
         }
     }
 }
@@ -72,7 +74,7 @@ impl Renderer {
     /// complicated cases you may want to use [`wgpu`] functionality directly c:
     pub fn write_texture(&self, desc: &TextureWriteDescriptor) {
         let dc = &self.dc;
-        let texture = self.get_texture(desc.handle);
+        let texture = self.textures.get(desc.handle);
 
         let format = texture.format;
         let block_width = format.block_dimensions().0 as u32;
@@ -113,6 +115,7 @@ pub struct TextureDescriptor {
     pub size: UVec2,
     pub mip_levels: u32,
     pub format: TextureFormat,
+    pub unfiltered: bool,
 }
 
 pub struct TextureWriteDescriptor<'a> {

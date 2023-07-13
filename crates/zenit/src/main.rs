@@ -3,7 +3,11 @@
 // Specifying the subsystem as "windows" disables this
 #![cfg_attr(feature = "no-console", windows_subsystem = "windows")]
 
-use crate::{assets::GameRoot, graphics::system::RenderSystem, scene::system::SceneSystem};
+use crate::{
+    assets::{AssetLoader, AssetManager, GameRoot},
+    graphics::{system::RenderSystem, Renderer},
+    scene::{system::SceneSystem, EngineBorrow}, entities::Universe,
+};
 use clap::Parser;
 use log::*;
 use std::sync::{atomic::Ordering, Arc};
@@ -21,7 +25,7 @@ pub mod graphics;
 pub mod platform;
 pub mod scene;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // TODO: move this game loop code somewhere lmao
 
@@ -60,14 +64,41 @@ pub fn main() -> ! {
 
     let captured_window = window.clone();
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
-        let gc = builder.global_state();
-        gc.add_any(game_root);
-        gc.add_any(captured_window.clone());
+        
         let window = captured_window.clone();
+        
+        let globals = builder.global_state();
+        let (mut renderer, render_system_dc, surface, sconfig) = Renderer::new(&window);
+        let mut assets = AssetManager::new(game_root.clone(), &mut renderer);
+        let mut universe = Universe::new();
+        
+        let mut engine = EngineBorrow {
+            globals,
+            assets: &mut assets,
+            renderer: &mut renderer,
+            universe: &mut universe,
+        };
+
+        AssetLoader::new(&mut engine)
+            .load_builtins()
+            .expect("could not load built-in assets");
 
         builder
-            .with_system(RenderSystem::new(captured_window))
-            .with_system(SceneSystem::new(window));
+            .with_system(RenderSystem::new(
+                &mut renderer,
+                render_system_dc,
+                window.clone(),
+                surface,
+                sconfig,
+            ))
+            .with_system(SceneSystem::new());
+    
+        let gc = builder.global_state();
+        gc.add_any(captured_window);
+        gc.add_any(game_root);
+        gc.add_lockable(assets);
+        gc.add_lockable(renderer);
+        gc.add_rw_lockable(universe);
     });
 
     let mut engine_thread_handle = Some(engine_thread_handle);
@@ -95,14 +126,7 @@ pub fn main() -> ! {
                 flow.set_exit();
             }
 
-            WindowEvent::ScaleFactorChanged {
-                scale_factor,
-                new_inner_size,
-            } => {
-                let _ = new_inner_size;
-                // TODO: handle scale factor changes explicitly
-                warn!("Scale factor changed to {scale_factor}, the engine doesn't handle this yet");
-            }
+            WindowEvent::ScaleFactorChanged { .. } => {}
 
             event => {
                 engine_context

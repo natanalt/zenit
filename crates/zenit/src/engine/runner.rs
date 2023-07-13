@@ -7,10 +7,6 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-// Maintenance note:
-// This code is a little bit convoluted, but here's a quick runthrough:
-//  1. start() creates the Engine Controller thread, which initializes
-
 /// Starts the core engine in its own dedicated thread.
 ///
 /// The provided parameter is a closure, which will receive an [`EngineBuilder`], capable of spawning
@@ -50,6 +46,7 @@ pub fn start(
                 let mut total_threads = 0;
 
                 raw_ec.globals.get_mut().add_any(EngineBus::new());
+                raw_ec.globals.get_mut().add_any(frame_profiler.history.clone());
 
                 f(&mut EngineBuilder {
                     scope: &scope,
@@ -85,13 +82,13 @@ pub fn start(
                     stage_barrier.wait(); // Main processing
                     stage_barrier.wait(); // Post processing
 
-                    // Send window events on the bus
+                    // Lock the bus, update window events, forward it to the next frame
                     {
                         let mut events = ec.window_events.lock();
                         let mut gs = ec.globals.write();
                         let bus = gs.get_mut::<EngineBus>();
-                        bus.next_frame();
                         bus.send_messages(events.drain(..).map(|event| Box::from(event) as _));
+                        bus.next_frame();
                     }
 
                     frame_profiler.finish_frame();
@@ -162,12 +159,13 @@ impl<'init, 'scope, 'env> EngineBuilder<'_, '_, '_> {
             loop {
                 let mut sp = system_profiler.lock();
 
-                if !first_frame_called {
-                    first_frame_called = true;
-                    system.first_frame(engine_context);
-                }
-
-                sp.frame_init(|| system.frame_initialization(engine_context));
+                sp.frame_init(|| {
+                    if !first_frame_called {
+                        first_frame_called = true;
+                        system.first_frame(engine_context);
+                    }
+                    system.frame_initialization(engine_context)
+                });
                 stage_barrier.wait(); // Frame initialization
 
                 let gc = engine_context.globals.read();

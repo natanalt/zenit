@@ -14,6 +14,7 @@ use zenit_lvl::{
     game::{D3DFormat, LevelTexture, LevelTextureFormat, LevelTextureFormatInfo, LevelTextureKind},
     node::{NodeHeader, NodeRead},
 };
+use log::*;
 
 pub enum LoadedTexture {
     Texture(TextureHandle),
@@ -34,9 +35,37 @@ pub enum TextureLoadError {
     ReadError(anyhow::Error),
 }
 
+/// Loads a texture and registers it inside the asset manager.
+/// 
+/// Any errors are logged, but not returned back. For better control, you may want to use
+/// [`load_texture`] instead.
+pub fn load_texture_as_asset(
+    (mut r, node): (impl Read + Seek, NodeHeader),
+    engine: &mut EngineBorrow,
+) {
+    let (name, texture) = match load_texture((&mut r, node), engine) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("An error occurred while loading a texture: {e:#?}");
+            return;
+        }
+    };
+
+    match texture {
+        LoadedTexture::Texture(texture) => {
+            trace!("Loaded texture `{name}`...");
+            engine.assets.textures.insert(name, texture);
+        }
+        LoadedTexture::Cubemap(cubemap) => {
+            trace!("Loaded cubemap `{name}`...");
+            engine.assets.cubemaps.insert(name, cubemap);
+        }
+    }
+}
+
+/// Loads a texture without registering it inside the asset manager.
 pub fn load_texture(
-    mut r: impl Read + Seek,
-    node: NodeHeader,
+    (mut r, node): (impl Read + Seek, NodeHeader),
     engine: &mut EngineBorrow,
 ) -> Result<(String, LoadedTexture), TextureLoadError> {
     use TextureLoadError::*;
@@ -46,10 +75,13 @@ pub fn load_texture(
     let level_format = level_texture
         .formats
         .into_iter()
-        .max_by_key(|format| rank_texture_format(format, engine))
+        .map(|format| (rank_texture_format(&format, engine), format))
+        .filter(|(rank, _)| *rank >= 0) // Disqualify any format ranked below zero
+        .max_by_key(|(rank, _)| *rank)
+        .map(|(_, format)| format)
         .ok_or(NoFormat)?;
 
-    let LevelTextureFormat { info, faces } = level_format;
+    let LevelTextureFormat { info, faces, unfiltered } = level_format;
 
     let renderer = &mut engine.renderer;
     let format = d3dformat_to_wgpu(info.format);
@@ -61,6 +93,7 @@ pub fn load_texture(
                 size: uvec2(info.width as u32, info.height as u32),
                 mip_levels: info.mipmaps as u32,
                 format,
+                unfiltered: unfiltered.len() > 0,
             });
 
             if faces.len() != 1 {
@@ -237,7 +270,10 @@ fn color_to_8bits(pixel_value: u16, shift: u16, depth: u16) -> u8 {
     //
     // This happens because the newly created bottom 3 bits are initialized with zero. We need to
     // scale them proportionally to the source value. For example, with a 5-bit component,
-    // color values [0; 31] get scaled to [0; 7] (as we are filling 3 bits)
+    // color values [0; 31] get scaled to [0; 7] (as we are filling 3 bits).
+    //
+    // This way, a source value of 0 will still be translated to 0, and a value of 31 will be
+    // translated to 255.
     //
     // A more generalized version of this would be scaling [0; 2**depth] to [0; 2**(8-depth)].
     // The expression below is basically a simplified version of this

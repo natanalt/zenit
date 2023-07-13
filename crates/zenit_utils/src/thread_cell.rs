@@ -1,96 +1,68 @@
 use std::{
     cell::UnsafeCell,
-    mem,
     thread::{self, ThreadId},
 };
 
-/// The thread cell is a solution for types that need to stay `Send + Sync`,
-/// while holding singlethreaded data.
-///
-/// This structure associates itself with the creator's thread ID, and only
-/// allows taking its references after a safety check to prove that it's
-/// still the creator therad using it.
+// TODO: verify if ThreadCell is is fully sound
+
+/// The thread cell stores types that aren't [`Send`], while itself being [`Send`] by ensuring that
+/// the underlying value can only be accessed on the creator thread.
+/// 
+/// This structures stores the thread ID of the object's owner within itself, guaranteeing that every
+/// access happens on the owner thread.
 ///
 /// ## Important drop notes
-/// The [`Drop`] implementation for the stored value is *not* called
-/// automatically. It can only be done by consuming the inner value by the
-/// owner thread.
-///
-/// If the cell value is not taken out, it will be forgotten, which can have
-/// many nasty consequences, depending on what kind of value you're storing
-/// here.
+/// The [`Drop`] implementation for the stored value is *not* called automatically. It can only be done
+/// by consuming the inner value by the owner thread.
 ///
 /// Don't forget.
 pub struct ThreadCell<T> {
     owner: ThreadId,
-    cell: Option<UnsafeCell<T>>,
+    cell: UnsafeCell<T>,
 }
 
 impl<T> ThreadCell<T> {
-    /// Returns a thread cell that cannot be ever retrieved
-    pub fn invalid() -> Self {
-        // TODO: please replace this with a once-cell
-        // Spawn a blank thread to generate a new ID
-        let tid = thread::spawn(move || {}).thread().id();
-
-        Self {
-            owner: tid,
-            cell: None,
-        }
-    }
-
+    /// Creates a new [`ThreadCell`] with a selected value.
     pub fn new(value: T) -> Self {
         Self {
             owner: thread::current().id(),
-            cell: Some(UnsafeCell::new(value)),
+            cell: UnsafeCell::new(value),
         }
     }
 
-    pub fn get(&self) -> Option<&T> {
-        if self.owner == thread::current().id() {
-            // Safety: thread was verified
-            unsafe { Some(self.cell.as_ref()?.get().as_ref().unwrap()) }
-        } else {
-            None
-        }
+    /// Returns an immutable reference to the underlying value.
+    /// 
+    /// ## Panics
+    /// Panics if the function isn't called from the owner thread.
+    pub fn get(&self) -> &T {
+        self.ensure_owner_thread();
+        unsafe { self.cell.get().as_ref().unwrap() }
     }
 
-    pub fn get_mut(&mut self) -> Option<&mut T> {
-        if self.owner == thread::current().id() {
-            // Safety: thread was verified
-            unsafe { Some(self.cell.as_ref()?.get().as_mut().unwrap()) }
-        } else {
-            None
-        }
+    /// Returns a mutable reference to the underlying value.
+    /// 
+    /// ## Panics
+    /// Panics if the function isn't called from the owner thread.
+    pub fn get_mut(&mut self) -> &mut T {
+        self.ensure_owner_thread();
+        unsafe { self.cell.get().as_mut().unwrap() }
     }
 
-    pub fn take(&mut self) -> Option<T> {
-        if self.owner == thread::current().id() {
-            Some(self.cell.take()?.into_inner())
-        } else {
-            None
-        }
+    /// Consumes the cell, returning the underlying value.
+    /// 
+    /// ## Panics
+    /// Panics if the function isn't called from the owner thread.
+    pub fn take(self) -> T {
+        self.ensure_owner_thread();
+        self.cell.into_inner()
     }
 
-    pub fn clear(&mut self) -> Result<(), ()> {
-        if self.owner == thread::current().id() {
-            let _ = self.take();
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl<T> Drop for ThreadCell<T> {
-    fn drop(&mut self) {
-        // See struct docs for details
-        if let Some(value) = self.cell.take() {
-            mem::forget(value);
+    fn ensure_owner_thread(&self) {
+        if thread::current().id() != self.owner {
+            panic!("thread cell access from an invalid thread");
         }
     }
 }
 
 // Safety: thread is checked during accesses
 unsafe impl<T> Send for ThreadCell<T> {}
-unsafe impl<T> Sync for ThreadCell<T> {}

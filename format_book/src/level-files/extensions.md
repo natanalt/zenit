@@ -7,6 +7,7 @@ This document describes what "non-standard" behavior is implemented.
 
 ## `tex_` (modifications)
  * Added an `R8G8B8` format (equivalent to `D3DFMT_R8G8B8 = 20 = 0x14`)
+ * Texture filtering can be disabled by including at least one `NFLT` node within a *texture format* node (`FMT_`). The `NFLT` node contents are ignored by the engine.
 
 ## `WGSL` (new node)
 The `WGSL` node stores WGSL shader code.

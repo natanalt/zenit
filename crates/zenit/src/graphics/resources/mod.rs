@@ -13,3 +13,7 @@ mod texture_resource;
 #[doc(inline)]
 pub use skybox_resource::*;
 mod skybox_resource;
+
+#[doc(inline)]
+pub use shader_resource::*;
+mod shader_resource;

@@ -1,4 +1,4 @@
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use std::{
     collections::VecDeque,
@@ -8,9 +8,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub type FrameHistory = Arc<RwLock<VecDeque<FrameTiming>>>;
+
 pub(in crate::engine) struct FrameProfiler {
     pub max_history_size: usize,
-    pub history: VecDeque<FrameTiming>,
+    pub history: FrameHistory,
     profilers: Vec<Arc<Mutex<SystemProfiler>>>,
     pending: FrameTiming,
 }
@@ -22,7 +24,7 @@ impl FrameProfiler {
             // This could be made reconfigurable via cmdline args, or config or something.
             // This should amount to up to ~2,17 MiB of frame profiler logs
             max_history_size: 5000,
-            history: VecDeque::new(),
+            history: FrameHistory::default(),
             profilers: vec![],
             pending: FrameTiming::default(),
         }
@@ -48,7 +50,7 @@ impl FrameProfiler {
         self.pending.controller_start = Some(Instant::now());
     }
 
-    pub fn finish_frame(&mut self) -> &FrameTiming {
+    pub fn finish_frame(&mut self) {
         self.pending.controller_end = Some(Instant::now());
 
         let mut pending = mem::take(&mut self.pending);
@@ -57,16 +59,15 @@ impl FrameProfiler {
             pending.system_timings.push(sp.reset());
         }
 
-        if self.history.len() >= self.max_history_size {
-            self.history.pop_front();
+        let mut history = self.history.write();
+        if history.len() >= self.max_history_size {
+            history.pop_front();
         }
-
-        self.history.push_back(pending);
-        self.history.back().unwrap()
+        history.push_back(pending);
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct FrameTiming {
     /// Moment when the engine controller itself began frame processing
     pub controller_start: Option<Instant>,
@@ -76,13 +77,22 @@ pub struct FrameTiming {
     pub system_timings: SmallVec<[SystemTiming; 5]>,
 }
 
+impl FrameTiming {
+    /// The time spent in the frame by the controller; the most accurate thing you can get to a
+    /// *"delta time"* or whatever.
+    #[doc(alias = "delta")]
+    pub fn controller_time(&self) -> Duration {
+        match (self.controller_start, self.controller_end) {
+            (Some(start), Some(end)) => end.duration_since(start),
+            _ => Duration::ZERO,
+        }
+    }
+}
+
 impl Debug for FrameTiming {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FrameTiming")
-            .field(
-                "controller_time",
-                &calculate_time(self.controller_start, self.controller_end),
-            )
+            .field("controller_time", &self.controller_time())
             .field("controller_start", &self.controller_start)
             .field("controller_end", &self.controller_end)
             .field("system_timings", &self.system_timings)
@@ -90,6 +100,7 @@ impl Debug for FrameTiming {
     }
 }
 
+#[derive(Clone)]
 pub struct SystemTiming {
     pub label: &'static str,
     pub frame_init_start: Instant,
@@ -170,12 +181,5 @@ impl SystemProfiler {
             post_process_start: self.post_process_start.take().unwrap(),
             post_process_end: self.post_process_end.take().unwrap(),
         }
-    }
-}
-
-fn calculate_time(start: Option<Instant>, end: Option<Instant>) -> Option<Duration> {
-    match (start, end) {
-        (Some(start), Some(end)) => Some(end.duration_since(start)),
-        _ => None,
     }
 }

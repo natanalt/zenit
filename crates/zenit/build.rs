@@ -2,9 +2,10 @@ use std::{env, io, path::PathBuf};
 use zenit_mdk::{commands::build::BuildCommand, CliCommand};
 
 fn main() -> io::Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=assets");
-    println!("cargo:rerun-if-changed=crates/platform/windows/zenit.rc");
-    println!("cargo:rerun-if-changed=crates/platform/windows/zenit.exe.manifest");
+    println!("cargo:rerun-if-changed=src/platform/windows/zenit.rc");
+    println!("cargo:rerun-if-changed=src/platform/windows/zenit.exe.manifest");
 
     println!(" == Running vergen...");
     let mut vergen_config = vergen::Config::default();

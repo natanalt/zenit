@@ -5,7 +5,7 @@ use serde::Deserialize;
 use std::{ffi::CString, io::Cursor, path::PathBuf};
 use zenit_lvl::game::{
     D3DFormat, LevelTexture, LevelTextureFace, LevelTextureFormat, LevelTextureFormatInfo,
-    LevelTextureKind, LevelTextureMipmap, LevelTextureMipmapInfo,
+    LevelTextureKind, LevelTextureMipmap, LevelTextureMipmapInfo, ZLevelTextureFiltering,
 };
 use zenit_utils::AnyResult;
 
@@ -32,6 +32,89 @@ pub struct TextureSpecification {
     #[serde(flatten)]
     pub kind: TextureKind,
     pub mipmaps: Option<u16>,
+    #[serde(default)]
+    pub unfiltered: bool,
+}
+
+impl TextureSpecification {
+    pub fn export(self) -> AnyResult<LevelTexture> {
+        let TextureSpecification {
+            name,
+            file,
+            formats,
+            kind,
+            mipmaps,
+            unfiltered,
+        } = self;
+    
+        let mut texture = LevelTexture {
+            name: CString::new(name)?,
+            formats: Vec::with_capacity(formats.len()),
+            info: {
+                // tex_:INFO has a dynamically sized format, so we just assemble it here manually
+                let mut result = vec![];
+                let mut cursor = Cursor::new(&mut result);
+                cursor.write_u32::<LE>(formats.len().try_into()?)?;
+                for &format in &formats {
+                    cursor.write_u32::<LE>(format.into())?;
+                }
+                result
+            },
+        };
+    
+        let image = image::open(file)?.into_rgba8();
+        ensure!(image.width() <= i16::MAX as u32, "image too large");
+        ensure!(image.height() <= i16::MAX as u32, "image too large");
+        let width = image.width() as u16;
+        let height = image.height() as u16;
+    
+        let mipmaps = match mipmaps {
+            Some(user_amount) => user_amount,
+            None => {
+                // plus 1 cause we're also counting power of 0
+                width.max(height).ilog2() as u16 + 1
+            }
+        };
+    
+        for format in formats {
+            let generated_mipmaps = generate_mipmaps(
+                &image.as_raw(),
+                width as usize,
+                height as usize,
+                mipmaps as usize,
+            );
+    
+            use CubemapFaces::*;
+            use TextureKind::*;
+            texture.formats.push(LevelTextureFormat {
+                info: LevelTextureFormatInfo {
+                    format,
+                    width,
+                    height,
+                    unk_0x08: 1, // ??
+                    mipmaps,
+                    kind: match &kind {
+                        Color => LevelTextureKind::D2,
+                        Cubemap(_) => LevelTextureKind::Cubemap,
+                    },
+                },
+                faces: match &kind {
+                    Color => vec![export_face(generated_mipmaps, format)?],
+                    Cubemap(cubemap_faces) => match cubemap_faces {
+                        Repeated => vec![export_face(generated_mipmaps, format)?; 6],
+                        Sheeted => bail!("cubemap sheets aren't supported yet"),
+                    },
+                },
+                unfiltered: if unfiltered {
+                    vec![ZLevelTextureFiltering {}]
+                } else {
+                    vec![]
+                },
+            });
+        }
+    
+        Ok(texture)
+    }
 }
 
 /// Shrinks the texture by a factor of 2, filtering the pixel by using the average of 4x4 blocks.
@@ -125,78 +208,4 @@ fn export_face(
             })
             .collect::<AnyResult<Vec<_>>>()?,
     })
-}
-
-/// Generates a texture from its specification.
-pub fn export_texture(spec: TextureSpecification) -> AnyResult<LevelTexture> {
-    let TextureSpecification {
-        name,
-        file,
-        formats,
-        kind,
-        mipmaps,
-    } = spec;
-
-    let mut texture = LevelTexture {
-        name: CString::new(name)?,
-        formats: Vec::with_capacity(formats.len()),
-        info: {
-            // tex_:INFO has a dynamically sized format, so we just assemble it here manually
-            let mut result = vec![];
-            let mut cursor = Cursor::new(&mut result);
-            cursor.write_u32::<LE>(formats.len().try_into()?)?;
-            for &format in &formats {
-                cursor.write_u32::<LE>(format.into())?;
-            }
-            result
-        },
-    };
-
-    let image = image::open(file)?.into_rgba8();
-    ensure!(image.width() <= i16::MAX as u32, "image too large");
-    ensure!(image.height() <= i16::MAX as u32, "image too large");
-    let width = image.width() as u16;
-    let height = image.height() as u16;
-
-    let mipmaps = match mipmaps {
-        Some(user_amount) => user_amount,
-        None => {
-            // plus 1 cause we're also counting power of 0
-            width.max(height).ilog2() as u16 + 1
-        }
-    };
-
-    for format in formats {
-        let generated_mipmaps = generate_mipmaps(
-            &image.as_raw(),
-            width as usize,
-            height as usize,
-            mipmaps as usize,
-        );
-
-        use CubemapFaces::*;
-        use TextureKind::*;
-        texture.formats.push(LevelTextureFormat {
-            info: LevelTextureFormatInfo {
-                format,
-                width,
-                height,
-                unk_0x08: 1, // ??
-                mipmaps,
-                kind: match &kind {
-                    Color => LevelTextureKind::D2,
-                    Cubemap(_) => LevelTextureKind::Cubemap,
-                },
-            },
-            faces: match &kind {
-                Color => vec![export_face(generated_mipmaps, format)?],
-                Cubemap(cubemap_faces) => match cubemap_faces {
-                    Repeated => vec![export_face(generated_mipmaps, format)?; 6],
-                    Sheeted => bail!("cubemap sheets aren't supported yet"),
-                },
-            },
-        });
-    }
-
-    Ok(texture)
 }

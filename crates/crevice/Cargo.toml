@@ -30,7 +30,7 @@ glam = { workspace = true, features = ["mint"], optional = true }
 nalgebra = { version = "0.31.3", features = ["mint"], optional = true }
 
 [dev-dependencies]
-insta = "1.21.0"
+#insta = "1.21.0"
 
 [package.metadata."docs.rs"]
 all-features = true

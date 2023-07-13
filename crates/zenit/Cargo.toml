@@ -50,13 +50,10 @@ wgpu.workspace = true
 raw-window-handle.workspace = true
 crossbeam.workspace = true
 parking_lot.workspace = true
-include_dir.workspace = true
 paste.workspace = true
-#image.workspace = true
 itertools.workspace = true
-egui.workspace = true
-egui-winit.workspace = true
-egui-wgpu.workspace = true
+
+imgui.workspace = true
 
 [build-dependencies]
 derive_builder.workspace = true

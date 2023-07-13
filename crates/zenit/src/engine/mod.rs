@@ -191,7 +191,7 @@ impl GlobalState {
 }
 
 /// Trait implemented by engine systems, see module docs for details.
-pub trait System: Any + Send + Sync {
+pub trait System: Any + Send {
     /// The system's label, primarily used to identify individual worker threads.
     /// It must be a constant.
     fn label(&self) -> &'static str;

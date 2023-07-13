@@ -1,4 +1,4 @@
-use crate::graphics::{DeviceContext, Renderer};
+use crate::graphics::Renderer;
 use glam::UVec2;
 use std::sync::Arc;
 use wgpu::TextureFormat;
@@ -18,14 +18,14 @@ pub struct CubemapResource {
 }
 
 impl CubemapResource {
-    pub fn new(dc: &DeviceContext, desc: &CubemapDescriptor) -> Self {
+    pub fn new(r: &mut Renderer, desc: &CubemapDescriptor) -> Self {
         // TODO: perhaps the power of 2 texture size limitation could be lifted
         debug_assert!(
             desc.size.x.is_power_of_two() && desc.size.y.is_power_of_two(),
             "Texture dimensions must be powers of 2"
         );
 
-        let handle = dc.device.create_texture(&wgpu::TextureDescriptor {
+        let handle = r.dc.device.create_texture(&wgpu::TextureDescriptor {
             label: Some(&desc.name),
             size: wgpu::Extent3d {
                 width: desc.size.x,
@@ -64,7 +64,7 @@ impl CubemapResource {
 impl Renderer {
     pub fn write_cubemap(&mut self, desc: &CubemapWriteDescriptor) {
         let dc = &self.dc;
-        let cubemap = self.get_cubemap(desc.handle);
+        let cubemap = self.cubemaps.get(desc.handle);
         let format = cubemap.format;
         let block_width = format.block_dimensions().0 as u32;
         let block_height = format.block_dimensions().1 as u32;

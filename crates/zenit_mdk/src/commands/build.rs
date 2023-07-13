@@ -1,4 +1,4 @@
-use crate::exporter::texture::{export_texture, TextureSpecification};
+use crate::exporter::{texture::TextureSpecification, shader::ShaderSpecification};
 use clap::Args;
 use serde::Deserialize;
 use std::{
@@ -48,7 +48,13 @@ impl crate::Command for BuildCommand {
         println!(" : Writing textures...");
         for texture in spec.textures {
             println!("  - Writing {}...", texture.name);
-            writer.write_node(b"tex_", export_texture(texture)?)?;
+            writer.write_node(b"tex_", texture.export()?)?;
+        }
+
+        println!(" : Writing shaders...");
+        for shader in spec.shaders {
+            println!("  - Writing {}...", shader.name);
+            writer.write_node(b"WGSL", shader.export()?)?;
         }
 
         println!(" : Finishing...");
@@ -61,4 +67,5 @@ impl crate::Command for BuildCommand {
 #[derive(Debug, Deserialize)]
 struct PackSpecification {
     textures: Vec<TextureSpecification>,
+    shaders: Vec<ShaderSpecification>,
 }

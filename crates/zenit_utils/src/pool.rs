@@ -1,6 +1,3 @@
-// The implementation is very similar to the ECS Universe
-// Maybe these could be merged or smth
-
 use std::num::NonZeroU32;
 
 /// Untyped handle for a [`Pool`].

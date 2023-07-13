@@ -1,4 +1,3 @@
-[include camera.inc.wgsl]
 
 // Groups and bindings are defined in render/skybox.rs
 @group(0) @binding(0)
@@ -17,9 +16,9 @@ struct SkyboxOutput {
 fn vs_main(@location(0) position: vec3<f32>) -> SkyboxOutput {
     var output: SkyboxOutput;
     output.position =
-        camera.projection *
-        camera.world_to_view *
-        vec4(position, 1.0);
+        camera.projection
+        * camera.world_to_view
+        * vec4(position, 1.0);
     output.uv = position;
     return output;
 }

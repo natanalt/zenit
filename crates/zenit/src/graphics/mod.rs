@@ -25,14 +25,18 @@
 //! Code that actually parses serialized asset files is located in the [`crate::assets`] module.
 //!
 
-use parking_lot::Mutex;
+use self::imgui_renderer::ImguiFrame;
+use ahash::AHashMap;
+use log::*;
 use paste::paste;
+use pollster::FutureExt;
 use std::sync::Arc;
-use wgpu::{Adapter, Device, Instance, Queue, TextureFormat};
+use wgpu::{Features, Limits, TextureFormat};
+use winit::window::Window;
 use zenit_utils::ArcPool;
 
-pub mod egui_support;
 mod frame_state;
+pub mod imgui_renderer;
 pub mod macros;
 pub mod system;
 
@@ -43,7 +47,6 @@ mod resources;
 #[doc(inline)]
 pub use scene::*;
 
-use self::system::EguiOutput;
 mod scene;
 
 // TODO: make the RENDER_FORMAT dynamically chosen?
@@ -64,10 +67,79 @@ pub const RENDER_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 /// of graphical settings, which will require the renderer to be capable of a full restart at any
 /// point.
 pub struct DeviceContext {
-    pub device: Device,
-    pub queue: Queue,
-    pub instance: Instance,
-    pub adapter: Adapter,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
+}
+
+impl DeviceContext {
+    /// Creates a new [`wgpu`] instance and initializes a whole device context based from that.
+    pub fn create(window: &Window) -> (Arc<Self>, wgpu::Surface, wgpu::SurfaceConfiguration) {
+        info!("Creating a device context...");
+
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::VULKAN,
+            ..Default::default()
+        });
+
+        let surface = unsafe {
+            instance
+                .create_surface(&window)
+                .expect("couldn't create the surface")
+        };
+
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+            })
+            .block_on()
+            .expect("couldn't find a GPU");
+
+        info!("Using adapter: {}", adapter.get_info().name);
+        info!("Using backend: {:?}", adapter.get_info().backend);
+
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    // BC compression, aka DXTn or S3
+                    features: Features::TEXTURE_COMPRESSION_BC | Features::CLEAR_TEXTURE,
+                    limits: Limits::default(),
+                },
+                None,
+            )
+            .block_on()
+            .expect("couldn't initialize the device");
+
+        // We could establish better error handling here
+        device.on_uncaptured_error(Box::new(|error| {
+            error!("An error has been reported by wgpu!");
+            error!("{error}");
+            panic!("Graphics API error: {error}");
+        }));
+
+        let sconfig = surface
+            .get_default_config(
+                &adapter,
+                window.inner_size().width,
+                window.inner_size().height,
+            )
+            .expect("surface unsupported by adapter");
+
+        surface.configure(&device, &sconfig);
+
+        let result = Arc::new(Self {
+            device,
+            queue,
+            instance,
+            adapter,
+        });
+
+        (result, surface, sconfig)
+    }
 }
 
 /// Various feature flags of the renderer, determined at runtime from the engine's settings and the
@@ -77,87 +149,165 @@ pub struct RenderCapabilities {
     pub allow_bc_compression: bool,
 }
 
-/// Combined renderer state, actually owning various wgpu resources.
+/// Public interface to the renderer API. It owns various renderer resources stored within dedicated
+/// pools.
 ///
-/// ## Access
-/// Access to the render state is split between the scene thread and the render thread:
+/// ## Access (synchronization internals)
+/// Access to the public renderer is split between the scene thread and the render thread:
 ///  * scene thread accesses it during main processing
 ///  * render thread accesses it during post processing
 pub struct Renderer {
     dc: Arc<DeviceContext>,
+
     pub capabilities: RenderCapabilities,
 
-    pub egui_output: Arc<Mutex<EguiOutput>>,
+    pub cameras: Cameras,
+    pub cubemaps: Cubemaps,
+    pub textures: Textures,
+    pub skyboxes: Skyboxes,
 
-    // If you add anything new, don't forget to collect_garbage() it
-    pub cameras: ArcPool<CameraResource>,
-    pub cubemaps: ArcPool<CubemapResource>,
-    pub textures: ArcPool<TextureResource>,
-    pub skyboxes: ArcPool<SkyboxResource>,
+    /// Map of named shaders.
+    ///
+    /// You may be wondering why these aren't getting a dedicated pool, like all other GPU resources.
+    /// Well, there's just no real reason to use a whole pool, string identifiers are good enough:tm:
+    pub shaders: AHashMap<String, ShaderResource>,
+
+    /// Currently rendered frame for Dear ImGui.
+    ///
+    /// The render system accesses it during the post-frame stage, as part of frame state collection.
+    /// The scene thread can use it all it wants during main processing.
+    pub imgui_frame: Option<ImguiFrame>,
+
+    // Miscellaneous stuff for functions
+    filtered_sampler: Arc<wgpu::Sampler>,
+    unfiltered_sampler: Arc<wgpu::Sampler>,
 }
 
 /// Common & miscellaneous functions
 impl Renderer {
-    pub fn new(dc: Arc<DeviceContext>, egui_output: Arc<Mutex<EguiOutput>>) -> Self {
-        Self {
-            capabilities: RenderCapabilities {
-                allow_bc_compression: dc
-                    .adapter
-                    .features()
-                    .contains(wgpu::Features::TEXTURE_COMPRESSION_BC),
+    pub fn new(
+        window: &Window,
+    ) -> (
+        Self,
+        Arc<DeviceContext>,
+        wgpu::Surface,
+        wgpu::SurfaceConfiguration,
+    ) {
+        let (dc, surface, sconfig) = DeviceContext::create(window);
+        let render_system_dc = dc.clone();
+
+        (
+            Self {
+                capabilities: RenderCapabilities {
+                    allow_bc_compression: dc
+                        .adapter
+                        .features()
+                        .contains(wgpu::Features::TEXTURE_COMPRESSION_BC),
+                },
+
+                cameras: Cameras::with_growth_size(10),
+                cubemaps: Cubemaps::with_growth_size(10),
+                textures: Textures::with_growth_size(10),
+                skyboxes: Skyboxes::with_growth_size(10),
+                shaders: AHashMap::with_capacity(10),
+
+                imgui_frame: None,
+
+                unfiltered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("unfiltered sampler"),
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::Repeat,
+                    address_mode_w: wgpu::AddressMode::Repeat,
+                    mag_filter: wgpu::FilterMode::Nearest,
+                    min_filter: wgpu::FilterMode::Nearest,
+                    mipmap_filter: wgpu::FilterMode::Nearest,
+                    lod_min_clamp: 0.0,
+                    lod_max_clamp: 32.0,
+                    compare: None,
+                    anisotropy_clamp: 1,
+                    border_color: None,
+                })),
+
+                filtered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("filtered sampler"),
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::Repeat,
+                    address_mode_w: wgpu::AddressMode::Repeat,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    lod_min_clamp: 0.0,
+                    lod_max_clamp: 32.0,
+                    compare: None,
+                    anisotropy_clamp: 1,
+                    border_color: None,
+                })),
+
+                dc,
             },
-
-            dc,
-            egui_output,
-
-            cameras: ArcPool::with_growth_size(10),
-            cubemaps: ArcPool::with_growth_size(10),
-            textures: ArcPool::with_growth_size(10),
-            skyboxes: ArcPool::with_growth_size(10),
-        }
+            render_system_dc,
+            surface,
+            sconfig,
+        )
     }
 
     pub fn dc(&self) -> &DeviceContext {
         &self.dc
     }
-
-    pub fn collect_garbage(&mut self) {
-        self.cameras.collect_garbage();
-        self.cubemaps.collect_garbage();
-        self.textures.collect_garbage();
-        self.skyboxes.collect_garbage();
-    }
 }
 
 // boilerplate generator 666
-// TODO: simplify this macro (would likely need some crate for macro_rules writing to aid with this)
-macro_rules! resource_functions {
-    ($({ $name:ident $field:ident : $Type:ty, $Handle:ty, $Descriptor:ty })*) => {
+macro_rules! resources {
+    ($({ $Name:ident $field:ident $singular:ident : $Resource:ty, $Handle:ty, $Descriptor:ty })*) => {
         paste! {
             $(
+                //#[doc = stringify!("Container of [`", $Resource, "`] resources with a typed [`", $Handle, "`] handle access")]
+                pub struct $Name {
+                    pub raw_pool: ArcPool<$Resource>,
+                }
+
+                impl $Name {
+                    fn with_growth_size(size: u32) -> Self {
+                        Self {
+                            raw_pool: ArcPool::with_growth_size(size),
+                        }
+                    }
+
+                    pub fn get(&self, handle: &$Handle) -> &$Resource {
+                        self.raw_pool.get(&handle.0)
+                    }
+
+                    pub fn get_mut(&mut self, handle: &$Handle) -> &mut $Resource {
+                        self.raw_pool.get_mut(&handle.0)
+                    }
+
+                    pub fn collect_garbage(&mut self) {
+                        self.raw_pool.collect_garbage();
+                    }
+                }
+
                 impl Renderer {
-                    pub fn [< create_ $name >](&mut self, desc: &$Descriptor) -> $Handle {
-                        $Handle(self.$field.allocate(
-                            <$Type>::new(&self.dc, desc)
-                        ))
-                    }
-
-                    pub fn [< get_ $name >](&self, handle: &$Handle) -> &$Type {
-                        self.$field.get(&handle.0)
-                    }
-
-                    pub fn [< get_ $name _mut >](&mut self, handle: &$Handle) -> &mut $Type {
-                        self.$field.get_mut(&handle.0)
+                    pub fn [<create_ $singular>](&mut self, desc: &$Descriptor) -> $Handle {
+                        let resource = <$Resource>::new(self, desc);
+                        $Handle(self.$field.raw_pool.allocate(resource))
                     }
                 }
             )*
+
+            impl Renderer {
+                pub fn collect_garbage(&mut self) {
+                    $(
+                        self.$field.collect_garbage();
+                    )*
+                }
+            }
         }
     };
 }
 
-resource_functions! {
-    { camera  cameras  : CameraResource,  CameraHandle,  CameraDescriptor  }
-    { texture textures : TextureResource, TextureHandle, TextureDescriptor }
-    { cubemap cubemaps : CubemapResource, CubemapHandle, CubemapDescriptor }
-    { skybox  skyboxes : SkyboxResource,  SkyboxHandle,  SkyboxDescriptor  }
+resources! {
+    { Cameras  cameras  camera  : CameraResource,  CameraHandle,  CameraDescriptor  }
+    { Textures textures texture : TextureResource, TextureHandle, TextureDescriptor }
+    { Cubemaps cubemaps cubemap : CubemapResource, CubemapHandle, CubemapDescriptor }
+    { Skyboxes skyboxes skybox  : SkyboxResource,  SkyboxHandle,  SkyboxDescriptor  }
 }

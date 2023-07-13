@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-
 use super::game_root::GameRoot;
 use crate::graphics::{CubemapHandle, Renderer, TextureDescriptor, TextureHandle};
 use ahash::AHashMap;
@@ -32,6 +31,7 @@ impl AssetManager {
                 size: uvec2(1, 1),
                 mip_levels: 1,
                 format: TextureFormat::Rgba8Unorm,
+                unfiltered: true,
             }),
         }
     }

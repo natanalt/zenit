@@ -1,5 +1,5 @@
 use super::accessor::{EntityAccessor, EntityAccessorMut};
-use super::{Component, Entity};
+use super::{Component, Entity, EntityBuilder};
 use ahash::AHashMap;
 use std::any::Any;
 use std::{any::TypeId, iter, num::NonZeroU32};
@@ -64,8 +64,11 @@ impl Universe {
             "attempting to delete an invalid entity"
         );
 
-        self.generations[entity.index as usize] = None;
+        for (_, component_vec) in &mut self.vectors {
+            component_vec.clear(entity.index);
+        }
 
+        self.generations[entity.index as usize] = None;
         self.free_indices.push(entity.index);
     }
 
@@ -93,6 +96,22 @@ impl Universe {
         vec_write_with_grow(&mut self.generations, index as usize, Some(generation));
 
         Entity { index, generation }
+    }
+
+    /// Creates a new entity with a single given component.
+    /// 
+    /// ## Panics
+    /// See [`Self::create_entity`]
+    pub fn create_entity_with(&mut self, component: impl Component) -> Entity {
+        self.build_entity()
+            .with_component(component)
+            .finish()
+    }
+
+    /// Creates a new instance of the [`EntityBuilder`]. It's basically a shorthand for its own
+    /// internal `new` function.
+    pub fn build_entity(&mut self) -> EntityBuilder {
+        EntityBuilder::new(self)
     }
 
     /// Checks whether provided [`Entity`] constitutes a valid handle.
@@ -158,6 +177,7 @@ impl Universe {
             .backend
             .iter()
             .enumerate()
+            .filter(|(_, component)| component.is_some())
             .filter_map(|(index, component)| {
                 let generation = self.generations[index].unwrap();
                 Some((
@@ -179,6 +199,7 @@ impl Universe {
             .backend
             .iter_mut()
             .enumerate()
+            .filter(|(_, component)| component.is_some())
             .filter_map(|(index, component)| {
                 let generation = generations[index].unwrap();
                 Some((
@@ -230,7 +251,10 @@ impl Universe {
 ///
 /// It's a bit hacky, and could be a bit more optimized perhaps, but it does the job.
 pub(in crate::entities) trait ComponentVec: Any + Send + Sync {
+    /// Removes the component of the specified entity.
+    /// Equivalent of `ComponentVecImpl::clear`
     fn clear(&mut self, index: u32);
+    /// Equivalent of `ComponentVecImpl::shrink_to_fit`
     fn shrink_to_fit(&mut self);
 
     // This may be unnecessary if rust#65991 (dyn upcasting) gets stabilized

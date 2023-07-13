@@ -1,23 +1,21 @@
 use crate::{
-    assets::{AssetLoader, AssetManager, GameRoot},
+    assets::AssetManager,
     devui::DevUi,
     engine::{EngineContext, GlobalState, System},
     entities::Universe,
     graphics::Renderer,
     scene::EngineBorrow,
 };
-use log::*;
-use std::sync::Arc;
-use winit::window::Window;
+use zenit_utils::ThreadCell;
 
 pub struct SceneSystem {
-    devui: DevUi,
+    devui: Option<ThreadCell<DevUi>>,
 }
 
 impl SceneSystem {
-    pub fn new(window: Arc<Window>) -> Self {
+    pub fn new() -> Self {
         Self {
-            devui: DevUi::new(&window),
+            devui: None,
         }
     }
 }
@@ -27,29 +25,9 @@ impl System for SceneSystem {
         "Scene System"
     }
 
-    fn init(&mut self, ec: &mut EngineContext) {
-        let gc = ec.globals.get_mut();
-        let assets = AssetManager::new(gc.get::<GameRoot>().clone(), &mut gc.lock::<Renderer>());
-        gc.add_lockable(assets);
-        gc.add_rw_lockable(Universe::new());
-
-        let mut assets = gc.lock::<AssetManager>();
-        let mut renderer = gc.lock::<Renderer>();
-        let mut universe = gc.write::<Universe>();
-
-        trace!("Initializing the global asset manager...");
-        AssetLoader::new(&mut EngineBorrow {
-            globals: &gc,
-            assets: &mut assets,
-            renderer: &mut renderer,
-            universe: &mut universe,
-        })
-        .load_builtins()
-        .expect("could not load built-in assets");
-    }
-
-    fn frame_initialization(&mut self, ec: &EngineContext) {
-        let _ = ec;
+    fn first_frame(&mut self, ec: &EngineContext) {
+        // We initialize the DevUi on the scene system thread
+        self.devui = Some(ThreadCell::new(DevUi::new(ec)));
     }
 
     fn main_process(&mut self, _ec: &EngineContext, gs: &GlobalState) {
@@ -64,10 +42,8 @@ impl System for SceneSystem {
             universe: &mut universe,
         };
 
-        self.devui.process(&mut engine);
-    }
-
-    fn post_process(&mut self, ec: &EngineContext) {
-        let _ = ec;
+        if let Some(devui) = self.devui.as_mut() {
+            devui.get_mut().process(&mut engine);
+        }
     }
 }

@@ -28,7 +28,18 @@ pub struct LevelTextureFormat {
     pub info: LevelTextureFormatInfo,
     #[nodes("FACE")]
     pub faces: Vec<LevelTextureFace>,
+
+    /// **Zenit-specific extension**
+    /// Specifies whether linear texture filtering should be enabled, or not.
+    /// Presence of a node means that the texture should be unfiltered.
+    #[cfg(feature = "zenit_extensions")]
+    #[nodes("NFLT")]
+    pub unfiltered: Vec<ZLevelTextureFiltering>,
 }
+
+/// A bit sloppy, this is a marker struct for `FMT_:NFLT`
+#[derive(Debug, Clone, NodeData)]
+pub struct ZLevelTextureFiltering {}
 
 #[derive(Debug, Clone, NodeData)]
 pub struct LevelTextureFace {

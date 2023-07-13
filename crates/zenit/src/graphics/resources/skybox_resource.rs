@@ -1,5 +1,5 @@
 use crate::bind_group_layout_array;
-use crate::graphics::DeviceContext;
+use crate::graphics::{DeviceContext, Renderer};
 use glam::*;
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -15,7 +15,7 @@ pub struct SkyboxResource {
 }
 
 impl SkyboxResource {
-    pub fn new(_dc: &DeviceContext, _desc: &SkyboxDescriptor) -> Self {
+    pub fn new(_r: &mut Renderer, _desc: &SkyboxDescriptor) -> Self {
         todo!()
     }
 }
@@ -29,8 +29,8 @@ pub struct SkyboxRenderer {
 }
 
 impl SkyboxRenderer {
-    pub fn new(dc: &DeviceContext) -> Self {
-        let bind_group_layout = Arc::new(dc.device.create_bind_group_layout(
+    pub fn new(r: &mut Renderer) -> Self {
+        let bind_group_layout = Arc::new(r.dc.device.create_bind_group_layout(
             &BindGroupLayoutDescriptor {
                 label: Some("Skybox Bind Group Layout"),
                 entries: &bind_group_layout_array![

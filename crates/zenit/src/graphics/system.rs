@@ -1,17 +1,15 @@
-use super::{egui_support, frame_state::FrameState, DeviceContext, Renderer};
+use super::{frame_state::FrameState, imgui_renderer::ImguiRenderer, DeviceContext, Renderer};
 use crate::{
-    engine::{EngineContext, GlobalState, System},
+    engine::{EngineContext, GlobalState, System, EngineBus},
     entities::Universe,
     graphics::SkyboxRenderer,
 };
-use egui::{ClippedPrimitive, FullOutput};
-use log::*;
 use parking_lot::Mutex;
-use pollster::FutureExt;
-use std::{mem, sync::Arc};
+use std::sync::Arc;
 use wgpu::*;
-use winit::window::Window;
+use winit::{window::Window, dpi::PhysicalSize, event::WindowEvent};
 
+/// The render system handles submitting render commands and displaying everything in general.
 pub struct RenderSystem {
     /// Note, this Arc should never be cloned - only 2/0 strong/weak references are allowed.
     dc: Arc<DeviceContext>,
@@ -20,92 +18,31 @@ pub struct RenderSystem {
     pub surface: Surface,
     pub sconfig: SurfaceConfiguration,
 
-    pub last_egui_output: EguiOutput,
-    pub egui_output: Arc<Mutex<EguiOutput>>,
-    pub egui_renderer: egui_support::EguiSupport,
+    pub imgui_renderer: ImguiRenderer,
+    pub skybox_renderer: SkyboxRenderer,
 
     pub pending_frame: Option<FrameState>,
-    pub skybox_renderer: SkyboxRenderer,
 }
 
 impl RenderSystem {
-    pub fn new(window: Arc<Window>) -> Self {
-        info!("Starting up the renderer...");
-
-        let instance = Instance::new(InstanceDescriptor {
-            backends: Backends::all(),
-            ..Default::default()
-        });
-
-        let surface = unsafe {
-            instance
-                .create_surface(&window)
-                .expect("couldn't create the surface")
-        };
-
-        let adapter = instance
-            .request_adapter(&RequestAdapterOptions {
-                power_preference: PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: Some(&surface),
-            })
-            .block_on()
-            .expect("couldn't find a GPU");
-
-        info!("Using adapter: {}", adapter.get_info().name);
-        info!("Using backend: {:?}", adapter.get_info().backend);
-
-        let (device, queue) = adapter
-            .request_device(
-                &DeviceDescriptor {
-                    label: None,
-                    // BC compression, aka DXTn or S3
-                    features: Features::TEXTURE_COMPRESSION_BC | Features::CLEAR_TEXTURE,
-                    limits: Limits::default(),
-                },
-                None,
-            )
-            .block_on()
-            .expect("couldn't initialize the device");
-
-        // We could establish better error handling here
-        device.on_uncaptured_error(Box::new(|error| {
-            error!("An error has been reported by wgpu!");
-            error!("{error}");
-            panic!("Graphics API error: {error}");
-        }));
-
-        let sconfig = surface
-            .get_default_config(
-                &adapter,
-                window.inner_size().width,
-                window.inner_size().height,
-            )
-            .expect("surface unsupported by adapter");
-
-        surface.configure(&device, &sconfig);
-
-        let dc = Arc::new(DeviceContext {
-            device,
-            queue,
-            instance,
-            adapter,
-        });
-
-        trace!("Loading basic resources...");
-        let skybox_renderer = SkyboxRenderer::new(&dc);
+    pub fn new(
+        renderer: &mut Renderer,
+        dc: Arc<DeviceContext>,
+        window: Arc<Window>,
+        surface: Surface,
+        sconfig: SurfaceConfiguration,
+    ) -> Self {
+        let imgui_renderer = ImguiRenderer::new(renderer, sconfig.format);
+        let skybox_renderer = SkyboxRenderer::new(renderer);
 
         Self {
-            egui_renderer: egui_support::EguiSupport::new(&dc, &sconfig),
-
-            window,
             dc,
+            window,
             surface,
             sconfig,
-            last_egui_output: Default::default(),
-            egui_output: Default::default(),
-            pending_frame: None,
+            imgui_renderer,
             skybox_renderer,
+            pending_frame: None,
         }
     }
 }
@@ -113,12 +50,6 @@ impl RenderSystem {
 impl System for RenderSystem {
     fn label(&self) -> &'static str {
         "Render System"
-    }
-
-    fn init(&mut self, ec: &mut EngineContext) {
-        trace!("Initializing the global renderer...");
-        let gc = ec.globals.get_mut();
-        gc.add_lockable(Renderer::new(self.dc.clone(), self.egui_output.clone()));
     }
 
     fn main_process(&mut self, _ec: &EngineContext, gc: &GlobalState) {
@@ -134,12 +65,30 @@ impl System for RenderSystem {
                 Arc::strong_count(&self.dc) == expected_refs && Arc::weak_count(&self.dc) == 0,
                 "only the renderer and render system are allowed to have live DC references"
             );
+        }  
+
+        // TODO: check for window size changes (and update renderers/resources as necessary)
+        {
+            let PhysicalSize { width, height } = self.window.inner_size();
+            if width == 0 || height == 0 {
+                return;
+            }
+
+            if width != self.sconfig.width || height != self.sconfig.height {
+                self.reconfigure_surface();
+                return;
+            }
         }
 
-        let device = &self.dc.device;
-        let queue = &self.dc.queue;
+        for message in gc.new_messages_of::<WindowEvent>() {
+            if let WindowEvent::Resized(_new_size) = message {
+                self.reconfigure_surface();
+                return;
+            }
+        }
 
-        // TODO: check for window size changes
+        let _device = &self.dc.device;
+        let queue = &self.dc.queue;
 
         // Notes on swapchain fetches:
         //  - On some GPUs on Linux under Mesa, Vulkan swapchains may randomly timeout. As
@@ -155,9 +104,7 @@ impl System for RenderSystem {
             Ok(texture) => texture,
 
             Err(SurfaceError::Outdated) => {
-                self.sconfig.width = self.window.inner_size().width;
-                self.sconfig.height = self.window.inner_size().height;
-                self.surface.configure(device, &self.sconfig);
+                self.reconfigure_surface();
 
                 // Try again next frame
                 return;
@@ -171,7 +118,7 @@ impl System for RenderSystem {
             Err(SurfaceError::Timeout) => panic!("swapchain failure: timeout"),
             #[cfg(target_os = "linux")]
             Err(SurfaceError::Timeout) => {
-                // Try again next frame
+                // Try again next frame, see comment above
                 return;
             }
         };
@@ -180,6 +127,9 @@ impl System for RenderSystem {
             label: Some("Framebuffer view"),
             ..Default::default()
         });
+
+        // TODO: use a SmallVec here maybe? (it's a microoptimization but whatever)
+        let mut command_buffers = vec![];
 
         for (camera, scene) in pending_frame.targets {
             let camera_resources = camera.gpu_resources.lock();
@@ -194,16 +144,15 @@ impl System for RenderSystem {
             }
         }
 
-        let textures_delta = mem::take(&mut self.last_egui_output.full_output.textures_delta);
-        let shapes = mem::take(&mut self.last_egui_output.tesselated);
+        if let Some(imgui_data) = pending_frame.imgui_frame {
+            command_buffers.push(self.imgui_renderer.render_imgui(
+                &self.dc,
+                imgui_data,
+                &current_view,
+            ));
+        }
 
-        queue.submit(self.egui_renderer.render(
-            &self.dc,
-            &self.window,
-            &current_view,
-            textures_delta,
-            shapes,
-        ));
+        queue.submit(command_buffers.into_iter());
         current_texture.present();
     }
 
@@ -212,14 +161,23 @@ impl System for RenderSystem {
         let uni = gc.read::<Universe>();
         let mut renderer = gc.lock::<Renderer>();
 
-        self.pending_frame = Some(FrameState::from_ecs(&uni, &renderer));
-        self.last_egui_output = mem::take(&mut self.egui_output.lock());
+        // Note the order here, FrameState::collect_state takes the ImguiFrame, while
+        // the ImGui renderer only mutably borrows it.
+        self.imgui_renderer.prepare_next_frame(&mut renderer);
+        self.pending_frame = Some(FrameState::collect_state(&uni, &mut renderer));
+
         renderer.collect_garbage();
     }
 }
 
-#[derive(Default)]
-pub struct EguiOutput {
-    pub full_output: FullOutput,
-    pub tesselated: Vec<ClippedPrimitive>,
+impl RenderSystem {
+    /// Called when the window surface changed, for example by getting resized.
+    /// 
+    /// In the future, this function will also handle reloading of resources dependent on the surface
+    /// dimensions.
+    fn reconfigure_surface(&mut self) {
+        self.sconfig.width = self.window.inner_size().width;
+        self.sconfig.height = self.window.inner_size().height;
+        self.surface.configure(&self.dc.device, &self.sconfig);
+    }
 }
