@@ -25,8 +25,10 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 ///  * [`Into<&str>`] for converting into the variant's name
 ///  * [`TryFrom<&str>`] for converting from the variant's name
 ///
+/// **Note:** The macro assumes that `zenit_utils` is present and usable.
+/// 
 /// ## Example
-/// ```
+/// ```norun
 /// use zenit_proc::ext_repr;
 ///
 /// #[ext_repr(u32)]
