@@ -1,5 +1,6 @@
 use crate::graphics::Renderer;
 use glam::UVec2;
+use zenit_lvl::game::D3DFormat;
 use std::sync::Arc;
 use wgpu::TextureFormat;
 use zenit_proc::ext_repr;
@@ -15,6 +16,8 @@ pub struct CubemapResource {
     pub format: wgpu::TextureFormat,
     /// The resource's primary texture view. Defined as an Arc to allow copying it to the render system.
     pub view: Arc<wgpu::TextureView>,
+    pub unfiltered: bool,
+    pub d3d_format: Option<D3DFormat>,
 }
 
 impl CubemapResource {
@@ -56,6 +59,8 @@ impl CubemapResource {
             format: desc.format,
             handle,
             view,
+            unfiltered: desc.unfiltered,
+            d3d_format: desc.d3d_format,
         }
     }
 }
@@ -127,6 +132,8 @@ pub struct CubemapDescriptor {
     pub size: UVec2,
     pub mip_levels: u32,
     pub format: TextureFormat,
+    pub d3d_format: Option<D3DFormat>,
+    pub unfiltered: bool,
 }
 
 pub struct CubemapWriteDescriptor<'a> {

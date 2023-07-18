@@ -9,9 +9,9 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use zenit_utils::math::Radians;
 
-/// Standalone[1] frame snapshot that can be used by the render system.
+/// Standalone\[1] frame snapshot that can be used by the render system.
 ///
-/// [1] Well, *technically* it includes shared references to GPU resources, but those aren't
+/// \[1] Well, *technically* it includes shared references to GPU resources, but those aren't
 /// to be exposed to main game code anyway.
 pub struct FrameState {
     /// Linear list of cameras and scenes they should render
@@ -94,7 +94,7 @@ impl CameraState {
         let camera = renderer.cameras.get(&camera_component.camera_handle);
 
         Self {
-            position: transform.translation(),
+            position: transform.position(),
             rotation: transform.rotation(),
             near_plane: camera.near_plane,
             far_plane: camera.far_plane,

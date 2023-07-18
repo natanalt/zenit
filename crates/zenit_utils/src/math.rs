@@ -29,9 +29,9 @@ impl Radians {
 }
 
 pub trait AngleExt {
-    /// Interprets this float as a radian angle value
+    /// Interprets this number as a radian angle value
     fn radians(self) -> Radians;
-    /// Interprets this float as a degree angle value
+    /// Interprets this number as a degree angle value
     fn degrees(self) -> Radians;
 }
 
@@ -44,5 +44,17 @@ impl AngleExt for f32 {
     #[inline]
     fn degrees(self) -> Radians {
         Radians::from_degrees(self)
+    }
+}
+
+impl AngleExt for i32 {
+    #[inline]
+    fn radians(self) -> Radians {
+        (self as f32).radians()
+    }
+
+    #[inline]
+    fn degrees(self) -> Radians {
+        (self as f32).degrees()
     }
 }

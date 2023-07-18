@@ -1,5 +1,4 @@
 
-// Groups and bindings are defined in render/skybox.rs
 @group(0) @binding(0)
 var<uniform> camera: CameraBuffer;
 @group(1) @binding(0)

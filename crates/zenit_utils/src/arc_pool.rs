@@ -9,6 +9,12 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct ArcPoolHandle(Arc<u32>);
 
+impl ArcPoolHandle {
+    pub fn live_references(&self) -> usize {
+        Arc::strong_count(&self.0)
+    }
+}
+
 impl PartialEq for ArcPoolHandle {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
@@ -100,6 +106,10 @@ impl<T> ArcPool<T> {
             .1
     }
 
+    /// Replaces a value in the pool with a new one.
+    /// 
+    /// ## Panics
+    /// See [`Self::get_mut`].
     pub fn set(&mut self, handle: &ArcPoolHandle, value: T) -> T {
         mem::replace(self.get_mut(handle), value)
     }
@@ -119,5 +129,20 @@ impl<T> ArcPool<T> {
             }
         }
         freed
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.values.iter().filter_map(|entry| Some(&entry.as_ref()?.1))
+    }
+
+    pub fn iter_handles(&self) -> impl Iterator<Item = (&T, ArcPoolHandle)> {
+        self.values.iter().filter_map(|entry| {
+            let (weak, value) = entry.as_ref()?;
+            Some((value, ArcPoolHandle(weak.upgrade()?)))
+        })
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.values.iter_mut().filter_map(|entry| Some(&mut entry.as_mut()?.1))
     }
 }

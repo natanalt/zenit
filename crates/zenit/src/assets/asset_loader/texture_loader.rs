@@ -69,10 +69,13 @@ pub fn load_texture(
     engine: &mut EngineBorrow,
 ) -> Result<(String, LoadedTexture), TextureLoadError> {
     use TextureLoadError::*;
+    use LevelTextureKind::*;
 
     let level_texture = LevelTexture::read_node_at(&mut r, node).map_err(|err| ParseError(err))?;
     let texture_name = level_texture.name.into_string().map_err(|_| BadName)?;
-    let level_format = level_texture
+
+    // Choose a texture format feasible for loading
+    let LevelTextureFormat { info, faces, unfiltered } = level_texture
         .formats
         .into_iter()
         .map(|format| (rank_texture_format(&format, engine), format))
@@ -81,19 +84,18 @@ pub fn load_texture(
         .map(|(_, format)| format)
         .ok_or(NoFormat)?;
 
-    let LevelTextureFormat { info, faces, unfiltered } = level_format;
-
     let renderer = &mut engine.renderer;
-    let format = d3dformat_to_wgpu(info.format);
+    let wgpu_format = d3dformat_to_wgpu(info.format);
 
     Ok(match info.kind {
-        LevelTextureKind::D2 => {
+        D2 => {
             let texture = renderer.create_texture(&TextureDescriptor {
                 name: texture_name.clone(),
                 size: uvec2(info.width as u32, info.height as u32),
                 mip_levels: info.mipmaps as u32,
-                format,
+                format: wgpu_format,
                 unfiltered: unfiltered.len() > 0,
+                d3d_format: Some(info.format),
             });
 
             if faces.len() != 1 {
@@ -116,12 +118,14 @@ pub fn load_texture(
 
             (texture_name, LoadedTexture::Texture(texture))
         }
-        LevelTextureKind::Cubemap => {
+        Cubemap => {
             let cubemap = renderer.create_cubemap(&CubemapDescriptor {
                 name: texture_name.clone(),
                 size: uvec2(info.width as u32, info.height as u32),
                 mip_levels: info.mipmaps as u32,
-                format,
+                format: wgpu_format,
+                unfiltered: unfiltered.len() > 0,
+                d3d_format: Some(info.format),
             });
 
             if faces.len() != 6 {
@@ -159,36 +163,39 @@ fn rank_texture_format(format: &LevelTextureFormat, engine: &mut EngineBorrow) -
         i32::MIN
     };
 
+    use D3DFormat::*;
     match format.info.format {
-        D3DFormat::DXT1 => compression_score,
-        D3DFormat::DXT3 => compression_score,
-        D3DFormat::A8R8G8B8 => 5,
-        D3DFormat::R8G8B8 => 4,
-        D3DFormat::R5G6B5 => 3,
-        D3DFormat::A1R5G5B5 => 1,
-        D3DFormat::A4R4G4B4 => 1,
-        D3DFormat::A8 => 1,
-        D3DFormat::L8 => 1,
-        D3DFormat::A8L8 => 1,
-        D3DFormat::A4L4 => 1,
-        D3DFormat::V8U8 => 1,
+        DXT1 => compression_score,
+        DXT3 => compression_score,
+        A8R8G8B8 => 5,
+        R8G8B8 => 4,
+        R5G6B5 => 3,
+        A1R5G5B5 => 1,
+        A4R4G4B4 => 1,
+        A8 => 1,
+        L8 => 1,
+        A8L8 => 1,
+        A4L4 => 1,
+        V8U8 => 1,
     }
 }
 
 fn d3dformat_to_wgpu(d3d: D3DFormat) -> TextureFormat {
+    // Note, that we're asusming that BF2 color textures are sRGB.
+    use D3DFormat::*;
     match d3d {
-        D3DFormat::DXT1 => TextureFormat::Bc1RgbaUnorm,
-        D3DFormat::DXT3 => TextureFormat::Bc2RgbaUnorm,
-        D3DFormat::A8R8G8B8 => TextureFormat::Bgra8Unorm,
-        D3DFormat::R5G6B5 => TextureFormat::Rgba8Unorm,
-        D3DFormat::A1R5G5B5 => TextureFormat::Rgba8Unorm,
-        D3DFormat::A4R4G4B4 => TextureFormat::Rgba8Unorm,
-        D3DFormat::A8 => TextureFormat::R8Unorm,
-        D3DFormat::L8 => TextureFormat::R8Unorm,
-        D3DFormat::A8L8 => TextureFormat::Rg8Unorm,
-        D3DFormat::A4L4 => TextureFormat::Rg8Unorm,
-        D3DFormat::V8U8 => TextureFormat::Rg8Unorm,
-        D3DFormat::R8G8B8 => TextureFormat::Rgba8Unorm,
+        DXT1 => TextureFormat::Bc1RgbaUnormSrgb,
+        DXT3 => TextureFormat::Bc2RgbaUnormSrgb,
+        A8R8G8B8 => TextureFormat::Bgra8UnormSrgb,
+        R5G6B5 => TextureFormat::Rgba8UnormSrgb,
+        A1R5G5B5 => TextureFormat::Rgba8UnormSrgb,
+        A4R4G4B4 => TextureFormat::Rgba8UnormSrgb,
+        A8 => TextureFormat::R8Unorm,
+        L8 => TextureFormat::R8Unorm,
+        A8L8 => TextureFormat::Rg8Unorm,
+        A4L4 => TextureFormat::Rg8Unorm,
+        V8U8 => TextureFormat::Rg8Unorm,
+        R8G8B8 => TextureFormat::Rgba8UnormSrgb,
     }
 }
 
@@ -196,19 +203,20 @@ fn d3dformat_to_wgpu(d3d: D3DFormat) -> TextureFormat {
 /// If no conversion is necessary, the vector will be given back. The texture
 /// format will match the result of [`d3dformat_to_wgpu`].
 fn convert_texture_format(info: &LevelTextureFormatInfo, data: Vec<u8>) -> Vec<u8> {
+    use D3DFormat::*;
     match info.format {
-        D3DFormat::DXT1 => data,
-        D3DFormat::DXT3 => data,
-        D3DFormat::A8R8G8B8 => data,
-        D3DFormat::R5G6B5 => convert_color_depth(data, 5, 6, 5, 0),
-        D3DFormat::A1R5G5B5 => convert_color_depth(data, 5, 5, 5, 1),
-        D3DFormat::A4R4G4B4 => convert_color_depth(data, 4, 4, 4, 4),
-        D3DFormat::A8 => data,
-        D3DFormat::L8 => data,
-        D3DFormat::A8L8 => data,
-        D3DFormat::A4L4 => data,
-        D3DFormat::V8U8 => data,
-        D3DFormat::R8G8B8 => {
+        DXT1 => data,
+        DXT3 => data,
+        A8R8G8B8 => data,
+        R5G6B5 => convert_color_depth(data, 5, 6, 5, 0),
+        A1R5G5B5 => convert_color_depth(data, 5, 5, 5, 1),
+        A4R4G4B4 => convert_color_depth(data, 4, 4, 4, 4),
+        A8 => data,
+        L8 => data,
+        A8L8 => data,
+        A4L4 => data,
+        V8U8 => data,
+        R8G8B8 => {
             // Convert to Rgba8Unorm
             data.into_iter()
                 .tuples()

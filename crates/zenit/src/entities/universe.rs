@@ -58,7 +58,7 @@ impl Universe {
         )
     }
 
-    pub fn delete_entity(&mut self, entity: Entity) {
+    pub fn destroy_entity(&mut self, entity: Entity) {
         assert!(
             self.validate_entity(entity),
             "attempting to delete an invalid entity"
@@ -246,7 +246,7 @@ impl Universe {
 
 /// Trait representing a type that contains within itself a [`ComponentVecImpl`].
 ///
-/// Its primary purpose is to allow for type erasure to allow calling [`clear`] and [`shrink_to_fit`]
+/// Its primary purpose is to allow for type erasure to allow calling [`Self::clear()`] and [`Self::shrink_to_fit()`]
 /// without knowing the underlying component type (as is required in some [`Universe`] functions).
 ///
 /// It's a bit hacky, and could be a bit more optimized perhaps, but it does the job.

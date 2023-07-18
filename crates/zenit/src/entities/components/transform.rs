@@ -8,10 +8,19 @@ pub struct TransformComponent(pub Affine3A);
 
 impl Component for TransformComponent {}
 
+impl Default for TransformComponent {
+    fn default() -> Self {
+        Self(Affine3A {
+            matrix3: Mat3A::IDENTITY,
+            translation: Vec3A::ZERO,
+        })
+    }
+}
+
 impl TransformComponent {
     /// Returns the transform's translation.
     #[inline]
-    pub fn translation(&self) -> Vec3A {
+    pub fn position(&self) -> Vec3A {
         self.0.translation
     }
 

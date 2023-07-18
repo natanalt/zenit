@@ -23,6 +23,19 @@
 //! mipmaps in the dedicated format, and so on.
 //!
 //! Code that actually parses serialized asset files is located in the [`crate::assets`] module.
+//! 
+//! ## How to render a scene
+//! The renderer fetches 3D scene data from the ECS. Here's an example workflow of creating a scene
+//! that will be detected by the render system:
+//! 
+//! 1. Create an entity with a [`SceneComponent`].
+//!    - This component defines global settings of the scene, such as the skybox, fog settings, etc.
+//! 2. Create render entities with [`RenderComponent`]s and attach them to the scene.
+//!    - This component stores an entity handle to the parent scene.
+//!    - Render entities can then be attached components like `TransformComponent`, `ModelComponent`.
+//! 3. Create a camera with a [`CameraComponent`] and a `TransformComponent`.
+//!    - This component links a scene entity and the underlying camera handle.
+//!    - Multiple cameras can render the same scene.
 //!
 
 use self::imgui_renderer::ImguiFrame;
@@ -46,7 +59,6 @@ mod resources;
 
 #[doc(inline)]
 pub use scene::*;
-
 mod scene;
 
 // TODO: make the RENDER_FORMAT dynamically chosen?
@@ -56,6 +68,7 @@ mod scene;
 ///
 /// Currently it defaults to a 16-bit float format to enable HDR support.
 pub const RENDER_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
+pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth24Plus;
 
 /// The device context contains public information regarding the current [`wgpu`] instance,
 /// including the device, queue, adapter, main surface, etc.
@@ -157,7 +170,9 @@ pub struct RenderCapabilities {
 ///  * scene thread accesses it during main processing
 ///  * render thread accesses it during post processing
 pub struct Renderer {
-    dc: Arc<DeviceContext>,
+    /// **Do not clone this Arc**.
+    /// It's provided for convenience as a pointer to the [`DeviceContext`].
+    pub dc: Arc<DeviceContext>,
 
     pub capabilities: RenderCapabilities,
 
@@ -171,12 +186,14 @@ pub struct Renderer {
     /// You may be wondering why these aren't getting a dedicated pool, like all other GPU resources.
     /// Well, there's just no real reason to use a whole pool, string identifiers are good enough:tm:
     pub shaders: AHashMap<String, ShaderResource>,
-
+    
     /// Currently rendered frame for Dear ImGui.
     ///
     /// The render system accesses it during the post-frame stage, as part of frame state collection.
     /// The scene thread can use it all it wants during main processing.
     pub imgui_frame: Option<ImguiFrame>,
+    
+    shared_bind_layouts: AHashMap<String, wgpu::BindGroupLayout>,
 
     // Miscellaneous stuff for functions
     filtered_sampler: Arc<wgpu::Sampler>,
@@ -196,55 +213,59 @@ impl Renderer {
         let (dc, surface, sconfig) = DeviceContext::create(window);
         let render_system_dc = dc.clone();
 
-        (
-            Self {
-                capabilities: RenderCapabilities {
-                    allow_bc_compression: dc
-                        .adapter
-                        .features()
-                        .contains(wgpu::Features::TEXTURE_COMPRESSION_BC),
-                },
-
-                cameras: Cameras::with_growth_size(10),
-                cubemaps: Cubemaps::with_growth_size(10),
-                textures: Textures::with_growth_size(10),
-                skyboxes: Skyboxes::with_growth_size(10),
-                shaders: AHashMap::with_capacity(10),
-
-                imgui_frame: None,
-
-                unfiltered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("unfiltered sampler"),
-                    address_mode_u: wgpu::AddressMode::Repeat,
-                    address_mode_v: wgpu::AddressMode::Repeat,
-                    address_mode_w: wgpu::AddressMode::Repeat,
-                    mag_filter: wgpu::FilterMode::Nearest,
-                    min_filter: wgpu::FilterMode::Nearest,
-                    mipmap_filter: wgpu::FilterMode::Nearest,
-                    lod_min_clamp: 0.0,
-                    lod_max_clamp: 32.0,
-                    compare: None,
-                    anisotropy_clamp: 1,
-                    border_color: None,
-                })),
-
-                filtered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("filtered sampler"),
-                    address_mode_u: wgpu::AddressMode::Repeat,
-                    address_mode_v: wgpu::AddressMode::Repeat,
-                    address_mode_w: wgpu::AddressMode::Repeat,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Linear,
-                    lod_min_clamp: 0.0,
-                    lod_max_clamp: 32.0,
-                    compare: None,
-                    anisotropy_clamp: 1,
-                    border_color: None,
-                })),
-
-                dc,
+        let renderer = Self {
+            capabilities: RenderCapabilities {
+                allow_bc_compression: dc
+                    .adapter
+                    .features()
+                    .contains(wgpu::Features::TEXTURE_COMPRESSION_BC),
             },
+
+            cameras: Cameras::with_growth_size(10),
+            cubemaps: Cubemaps::with_growth_size(10),
+            textures: Textures::with_growth_size(10),
+            skyboxes: Skyboxes::with_growth_size(10),
+            shaders: AHashMap::with_capacity(10),
+
+            imgui_frame: None,
+
+            shared_bind_layouts: AHashMap::with_capacity(10),
+
+            unfiltered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("unfiltered sampler"),
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                mag_filter: wgpu::FilterMode::Nearest,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 32.0,
+                compare: None,
+                anisotropy_clamp: 1,
+                border_color: None,
+            })),
+
+            filtered_sampler: Arc::new(dc.device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("filtered sampler"),
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 32.0,
+                compare: None,
+                anisotropy_clamp: 1,
+                border_color: None,
+            })),
+
+            dc,
+        };
+
+        (
+            renderer,
             render_system_dc,
             surface,
             sconfig,
@@ -255,6 +276,9 @@ impl Renderer {
         &self.dc
     }
 }
+
+// TODO: replace the graphics resources macro with a generic type?
+//       Something like Resources<TextureResource, TextureHandle, TextureDescriptor> could feasibly work
 
 // boilerplate generator 666
 macro_rules! resources {
@@ -283,6 +307,24 @@ macro_rules! resources {
 
                     pub fn collect_garbage(&mut self) {
                         self.raw_pool.collect_garbage();
+                    }
+
+                    pub fn iter(&self) -> impl Iterator<Item = &$Resource> {
+                        self.raw_pool.iter()
+                    }
+
+                    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut $Resource> {
+                        self.raw_pool.iter_mut()
+                    }
+
+                    pub fn iter_handles(&self) -> impl Iterator<Item = (&$Resource, $Handle)> {
+                        self.raw_pool
+                            .iter_handles()
+                            .map(|(value, handle)| (value, $Handle(handle)))
+                    }
+
+                    pub fn count_elements(&self) -> usize {
+                        self.iter().count()
                     }
                 }
 

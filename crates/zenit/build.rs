@@ -8,16 +8,20 @@ fn main() -> io::Result<()> {
     println!("cargo:rerun-if-changed=src/platform/windows/zenit.exe.manifest");
 
     println!(" == Running vergen...");
-    let mut vergen_config = vergen::Config::default();
-    *vergen_config.build_mut().kind_mut() = vergen::TimestampKind::All;
-    vergen::vergen(vergen_config).unwrap();
+    vergen::EmitBuilder::builder()
+        .git_branch()
+        .git_sha(true)
+        .rustc_semver()
+        .rustc_channel()
+        .build_timestamp()
+        .emit()
+        .unwrap();
 
     println!(" == Running resource embedding...");
     if env::var("CARGO_CFG_WINDOWS").is_ok() {
         embed_resource::compile("src/platform/windows/zenit.rc");
     }
 
-    // Build the zenit_builtin.lvl data file
     println!(" == Building zenit_builtin.lvl...");
     let old_cwd = env::current_dir()?;
     env::set_current_dir(old_cwd.join("assets/builtin"))?;

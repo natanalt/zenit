@@ -7,7 +7,7 @@
 //! library, version 0.11. Since then I decided to just kinda adapt the whole thing into the
 //! engine, cause why not.
 //!
-//! https://github.com/imgui-rs/imgui-rs/tree/main/imgui-winit-support
+//! <https://github.com/imgui-rs/imgui-rs/tree/main/imgui-winit-support>
 //!
 //! There's still a lot that this library doesn't properly support that I'd like to support
 //! eventually (and maybe contribute to upstream bindings). At least one thing I've noticed is
@@ -16,10 +16,10 @@
 
 use crate::{
     engine::{EngineContext, FrameHistory, FrameTiming},
-    entities::Component,
+    entities::{Component, Universe},
     graphics::{
         imgui_renderer::{ImguiFrame, ImguiRenderData, ImguiTexture},
-        TextureDescriptor, TextureWriteDescriptor,
+        TextureDescriptor, TextureWriteDescriptor, TextureHandle, CameraHandle,
     },
     scene::EngineBorrow,
 };
@@ -36,6 +36,11 @@ use winit::{
     window::{CursorIcon as MouseCursor, Window},
 };
 
+mod menu_bar;
+mod imgui_demo;
+mod viewers;
+mod imgui_ext;
+
 #[derive(Debug)]
 pub struct DevUi {
     imgui: imgui::Context,
@@ -50,7 +55,9 @@ impl DevUi {
     /// Initializes DevUi and the underlying Dear ImGui context.
     ///
     /// The ImGui initialization includes setting all backend flags for the renderer as well.
-    pub fn new(engine: &EngineContext) -> Self {
+    pub fn new(engine: &EngineContext, uni: &mut Universe) -> Self {
+        menu_bar::add_menu_bar(uni);
+
         let globals = engine.globals.read();
 
         let window = globals.get::<Arc<Window>>().clone();
@@ -77,7 +84,7 @@ impl DevUi {
             window,
             current_cursor_cache: None,
             font_needs_update: true,
-            texture_id_accumulator: 0,
+            texture_id_accumulator: 1,
         }
     }
 
@@ -96,9 +103,6 @@ impl DevUi {
             //self.handle_event(io, event);
             self.handle_window_event(event);
         }
-
-        
-        
 
         let imgui = &mut self.imgui;
 
@@ -144,6 +148,7 @@ impl DevUi {
                 mip_levels: 1,
                 format: wgpu::TextureFormat::Rgba8Unorm,
                 unfiltered: false,
+                d3d_format: None,
             });
 
             engine.renderer.write_texture(&TextureWriteDescriptor {
@@ -160,8 +165,6 @@ impl DevUi {
         // UI rendering
         let ui = imgui.new_frame();
 
-        ui.show_demo_window(&mut true);
-
         // To allow widgets to get `&mut EngineBorrow` we need to not hold a borrow on the universe
         // So, we just collect it to a vector
         let widgets = engine
@@ -171,16 +174,16 @@ impl DevUi {
             .collect::<Vec<_>>();
 
         for (entity, mut widget) in widgets {
-            let keep = widget.process_ui(ui, engine, &mut textures);
+            let keep_widget = widget.process_ui(ui, engine, &mut textures);
 
-            if keep {
+            if keep_widget {
                 engine
                     .universe
                     .get_component_mut::<DevUiComponent>(entity)
                     .unwrap()
                     .widget = Some(widget);
             } else {
-                engine.universe.delete_entity(entity);
+                engine.universe.destroy_entity(entity);
             }
         }
 
@@ -358,10 +361,18 @@ pub struct DevUiTextures<'a> {
 }
 
 impl<'a> DevUiTextures<'a> {
-    pub fn add_texture(&mut self, texture: ImguiTexture) -> TextureId {
+    pub fn add_any_texture(&mut self, texture: ImguiTexture) -> TextureId {
         let id = self.next_texture_id();
         self.new_textures.push((id, texture));
         id
+    }
+
+    pub fn add_texture(&mut self, texture: TextureHandle) -> TextureId {
+        self.add_any_texture(ImguiTexture::from_texture(texture))
+    }
+
+    pub fn add_camera(&mut self, camera: CameraHandle) -> TextureId {
+        self.add_any_texture(ImguiTexture::from_camera(camera))
     }
 
     pub fn remove_texture(&mut self, id: TextureId) {

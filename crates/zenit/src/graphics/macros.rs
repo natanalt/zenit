@@ -28,7 +28,7 @@
 /// ];
 /// ```
 ///
-/// Note, that at this time, this macro always sets [`BindGroupLayoutEntry`]`::count` to [`None`].
+/// Note, that at this time, this macro always sets [`wgpu::BindGroupLayoutEntry`]`::count` to [`None`].
 #[macro_export]
 macro_rules! bind_group_layout_array {
     (

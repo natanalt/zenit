@@ -16,6 +16,13 @@ faces = "Repeated"
 file = "textures/zenit_prototype_skybox.png"
 formats = ["DXT1"]
 
+[shader_preprocessor]
+shared = ["shaders/shared"]
+
 [[shaders]]
 name = "zenit_imgui"
 file = "shaders/imgui.wgsl"
+
+[[shaders]]
+name = "skybox"
+file = "shaders/skybox.wgsl"

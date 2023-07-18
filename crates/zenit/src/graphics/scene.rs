@@ -9,6 +9,12 @@ pub struct SceneComponent {
 
 impl Component for SceneComponent {}
 
+impl Default for SceneComponent {
+    fn default() -> Self {
+        Self { skybox: None }
+    }
+}
+
 /// Marks the entity as containing potential render items for a scene.
 pub struct RenderComponent {
     /// Parent entity with a [`SceneComponent`].

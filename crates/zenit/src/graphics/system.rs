@@ -1,6 +1,6 @@
-use super::{frame_state::FrameState, imgui_renderer::ImguiRenderer, DeviceContext, Renderer};
+use super::{frame_state::{FrameState, CameraState, FrameScene}, imgui_renderer::ImguiRenderer, DeviceContext, Renderer, CameraGpuResources};
 use crate::{
-    engine::{EngineContext, GlobalState, System, EngineBus},
+    engine::{EngineContext, GlobalState, System},
     entities::Universe,
     graphics::SkyboxRenderer,
 };
@@ -8,6 +8,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use wgpu::*;
 use winit::{window::Window, dpi::PhysicalSize, event::WindowEvent};
+use rayon::prelude::*;
 
 /// The render system handles submitting render commands and displaying everything in general.
 pub struct RenderSystem {
@@ -32,6 +33,8 @@ impl RenderSystem {
         surface: Surface,
         sconfig: SurfaceConfiguration,
     ) -> Self {
+        CameraGpuResources::register_camera_bind_layout(renderer);
+
         let imgui_renderer = ImguiRenderer::new(renderer, sconfig.format);
         let skybox_renderer = SkyboxRenderer::new(renderer);
 
@@ -65,9 +68,15 @@ impl System for RenderSystem {
                 Arc::strong_count(&self.dc) == expected_refs && Arc::weak_count(&self.dc) == 0,
                 "only the renderer and render system are allowed to have live DC references"
             );
-        }  
+        }
 
-        // TODO: check for window size changes (and update renderers/resources as necessary)
+        for message in gc.new_messages_of::<WindowEvent>() {
+            if let WindowEvent::Resized(_new_size) = message {
+                self.reconfigure_surface();
+                return;
+            }
+        }
+
         {
             let PhysicalSize { width, height } = self.window.inner_size();
             if width == 0 || height == 0 {
@@ -80,14 +89,6 @@ impl System for RenderSystem {
             }
         }
 
-        for message in gc.new_messages_of::<WindowEvent>() {
-            if let WindowEvent::Resized(_new_size) = message {
-                self.reconfigure_surface();
-                return;
-            }
-        }
-
-        let _device = &self.dc.device;
         let queue = &self.dc.queue;
 
         // Notes on swapchain fetches:
@@ -126,24 +127,20 @@ impl System for RenderSystem {
         let current_view = current_texture.texture.create_view(&TextureViewDescriptor {
             label: Some("Framebuffer view"),
             ..Default::default()
-        });
+           });
 
-        // TODO: use a SmallVec here maybe? (it's a microoptimization but whatever)
-        let mut command_buffers = vec![];
+        let mut command_buffers = Vec::with_capacity(pending_frame.targets.len() + 1);
 
-        for (camera, scene) in pending_frame.targets {
-            let camera_resources = camera.gpu_resources.lock();
+        
 
-            if let Some(skybox_resources) = &scene.skybox_resources {
-                let skybox_resources = skybox_resources.lock();
-                self.skybox_renderer.render_skybox(
-                    &self.dc,
-                    &skybox_resources,
-                    &camera_resources.texture_view,
-                );
-            }
-        }
+        // Render all pending scenes in parallel
+        pending_frame
+            .targets
+            .into_par_iter()
+            .map(|(camera, scene)| self.render_scene(camera, scene))
+            .collect_into_vec(&mut command_buffers);
 
+        // TODO: add this to the above parallel generator
         if let Some(imgui_data) = pending_frame.imgui_frame {
             command_buffers.push(self.imgui_renderer.render_imgui(
                 &self.dc,
@@ -179,5 +176,32 @@ impl RenderSystem {
         self.sconfig.width = self.window.inner_size().width;
         self.sconfig.height = self.window.inner_size().height;
         self.surface.configure(&self.dc.device, &self.sconfig);
+    }
+
+    /// Encodes a scene into a command buffer.
+    fn render_scene(&self, camera: CameraState, scene: Arc<FrameScene>) -> wgpu::CommandBuffer {
+        let device = &self.dc.device;
+
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("scene encoder"),
+        });
+
+        encoder.push_debug_group("scene rendering");
+
+        let camera_resources = camera.gpu_resources.lock();
+
+        if let Some(skybox_resources) = &scene.skybox_resources {
+            let skybox_resources = skybox_resources.lock();
+            self.skybox_renderer.render_skybox(
+                &self.dc,
+                &mut encoder,
+                &camera_resources,
+                &skybox_resources,
+            );
+        }
+
+        encoder.pop_debug_group();
+
+        encoder.finish()
     }
 }

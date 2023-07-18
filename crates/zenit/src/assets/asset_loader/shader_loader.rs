@@ -45,5 +45,6 @@ pub fn load_shader(
         source: ShaderSource::Wgsl(Cow::Borrowed(&code)),
     });
 
+
     Ok((name.clone(), ShaderResource { name, code, module }))
 }

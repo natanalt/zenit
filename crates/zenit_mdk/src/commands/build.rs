@@ -1,10 +1,10 @@
-use crate::exporter::{texture::TextureSpecification, shader::ShaderSpecification};
+use crate::exporter::{shader::ShaderSpecification, texture::TextureSpecification};
 use clap::Args;
 use serde::Deserialize;
 use std::{
     fs::{self, File},
     io::BufWriter,
-    path::PathBuf,
+    path::{PathBuf, Path},
 };
 use zenit_lvl::node::NodeWriter;
 use zenit_utils::{ok, AnyResult};
@@ -52,9 +52,33 @@ impl crate::Command for BuildCommand {
         }
 
         println!(" : Writing shaders...");
+
+        println!("  - Reading shared definitions...");
+        let mut shader_shared = String::new();
+        for dir in spec.shader_preprocessor.shared {
+            for dir_entry_result in fs::read_dir(&dir)? {
+                let dir_entry = dir_entry_result?;
+                
+                if !dir_entry.file_type()?.is_file() {
+                    continue;
+                }
+
+                let file_name = dir_entry.file_name();
+                let path = dir.join(Path::new(&file_name));
+                //if !path.ends_with(".inc.wgsl") {
+                //    continue;
+                //}
+
+                println!("    - Including {path:?}...");
+
+                shader_shared.push_str(&fs::read_to_string(path)?);
+                shader_shared.push('\n');
+            }
+        }
+
         for shader in spec.shaders {
             println!("  - Writing {}...", shader.name);
-            writer.write_node(b"WGSL", shader.export()?)?;
+            writer.write_node(b"WGSL", shader.export(&shader_shared)?)?;
         }
 
         println!(" : Finishing...");
@@ -68,4 +92,11 @@ impl crate::Command for BuildCommand {
 struct PackSpecification {
     textures: Vec<TextureSpecification>,
     shaders: Vec<ShaderSpecification>,
+    #[serde(default)]
+    shader_preprocessor: ShaderPreprocessorSettings,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ShaderPreprocessorSettings {
+    shared: Vec<PathBuf>,
 }

@@ -32,6 +32,7 @@ impl AssetManager {
                 mip_levels: 1,
                 format: TextureFormat::Rgba8Unorm,
                 unfiltered: true,
+                d3d_format: None,
             }),
         }
     }

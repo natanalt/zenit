@@ -57,7 +57,7 @@ itertools = "0"
 #  - see how imgui-winit-support and imgui-wgpu handle things now
 #  - fix what's broken
 #  - then update and hope you fixed everything that's broken
-imgui = "0.11"
+imgui = { version = "0.11", features = ["tables-api"] }
 
 # The `alloc` feature is necessary for Arc<Window> implementation.
 raw-window-handle = { version = "0", features = ["alloc"] }
@@ -66,5 +66,5 @@ proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full", "extra-traits"] }
 
-vergen = "7"
+vergen = { version = "8", features = ["git", "rustc", "build", "gitoxide"] }
 embed-resource = "1"

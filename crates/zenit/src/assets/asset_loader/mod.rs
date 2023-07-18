@@ -39,6 +39,13 @@ impl<'a> AssetLoader<'a> {
 
     pub fn load_builtins(&mut self) -> AnyResult {
         self.load_level_file(Cursor::new(ZENIT_BUILTIN_LVL), "zenit_builtin")?;
+        self.engine.assets.error_texture = self
+            .engine
+            .assets
+            .textures
+            .get("zenit_error")
+            .expect("zenit_error texture not found")
+            .clone();
         ok()
     }
 }

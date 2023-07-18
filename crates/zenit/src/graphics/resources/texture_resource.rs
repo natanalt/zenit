@@ -1,5 +1,6 @@
 use crate::graphics::Renderer;
 use glam::*;
+use zenit_lvl::game::D3DFormat;
 use std::sync::Arc;
 use wgpu::TextureFormat;
 use zenit_utils::ArcPoolHandle;
@@ -8,6 +9,14 @@ use zenit_utils::ArcPoolHandle;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextureHandle(pub(in crate::graphics) ArcPoolHandle);
 
+impl TextureHandle {
+    // TODO: move this to a general handle trait
+
+    pub fn live_references(&self) -> usize {
+        self.0.live_references()
+    }
+}
+
 pub struct TextureResource {
     pub label: String,
     pub handle: wgpu::Texture,
@@ -15,6 +24,7 @@ pub struct TextureResource {
     /// The resource's primary texture view. Defined as an Arc to allow copying it to the render system.
     pub view: Arc<wgpu::TextureView>,
     pub unfiltered: bool,
+    pub d3d_format: Option<D3DFormat>,
 }
 
 impl TextureResource {
@@ -57,6 +67,7 @@ impl TextureResource {
             handle,
             view,
             unfiltered: desc.unfiltered,
+            d3d_format: desc.d3d_format,
         }
     }
 }
@@ -116,6 +127,10 @@ pub struct TextureDescriptor {
     pub mip_levels: u32,
     pub format: TextureFormat,
     pub unfiltered: bool,
+
+    /// If the texture was loaded from a Direct3D texture, this marks the source format.
+    /// It's used primarily for debug (DevUi displays it in the renderer tools)
+    pub d3d_format: Option<D3DFormat>,
 }
 
 pub struct TextureWriteDescriptor<'a> {

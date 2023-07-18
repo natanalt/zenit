@@ -28,7 +28,7 @@ pub fn packed_parser_derive(input: TokenStream) -> TokenStream {
 /// **Note:** The macro assumes that `zenit_utils` is present and usable.
 /// 
 /// ## Example
-/// ```norun
+/// ```no_run
 /// use zenit_proc::ext_repr;
 ///
 /// #[ext_repr(u32)]

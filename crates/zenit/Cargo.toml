@@ -52,6 +52,7 @@ crossbeam.workspace = true
 parking_lot.workspace = true
 paste.workspace = true
 itertools.workspace = true
+rayon.workspace = true
 
 imgui.workspace = true
 

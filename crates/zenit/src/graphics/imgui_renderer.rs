@@ -3,7 +3,7 @@
 //! It started as a fork of the following library, but it got modified so heavily, that at this point
 //! I can really only call it inspired by it, as what we have is a total rewrite:
 //!
-//! https://github.com/Yatekii/imgui-wgpu-rs
+//! <https://github.com/Yatekii/imgui-wgpu-rs>
 //!
 
 use super::{CameraHandle, DeviceContext, Renderer, TextureHandle};
