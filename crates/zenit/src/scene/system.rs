@@ -14,9 +14,7 @@ pub struct SceneSystem {
 
 impl SceneSystem {
     pub fn new() -> Self {
-        Self {
-            devui: None,
-        }
+        Self { devui: None }
     }
 }
 

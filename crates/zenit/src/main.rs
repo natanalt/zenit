@@ -5,8 +5,9 @@
 
 use crate::{
     assets::{AssetLoader, AssetManager, GameRoot},
+    entities::Universe,
     graphics::Renderer,
-    scene::{system::SceneSystem, EngineBorrow}, entities::Universe,
+    scene::{system::SceneSystem, EngineBorrow},
 };
 use clap::Parser;
 use log::*;
@@ -65,12 +66,12 @@ pub fn main() -> ! {
     let captured_window = window.clone();
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
         let window = captured_window.clone();
-        
+
         let globals = builder.global_state();
         let (mut renderer, render_system) = Renderer::new(&window);
         let mut assets = AssetManager::new(game_root.clone(), &mut renderer);
         let mut universe = Universe::new();
-        
+
         let mut engine = EngineBorrow {
             globals,
             assets: &mut assets,
@@ -85,7 +86,7 @@ pub fn main() -> ! {
         builder
             .with_system(render_system)
             .with_system(SceneSystem::new());
-    
+
         let gc = builder.global_state();
         gc.add_any(captured_window);
         gc.add_any(game_root);

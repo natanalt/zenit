@@ -62,9 +62,9 @@ impl super::RendererViewerTab for TextureViewer {
                 ui.same_line();
                 ui.text_disabled("(2D texture)");
                 ui.separator();
-                
+
                 model_preview.display(ui, renderer, preview_size);
-                
+
                 let texture = renderer.textures.get(handle);
                 if let Some(_) = ui.begin_table("TextureInfo", 2) {
                     ui.table_next_row();

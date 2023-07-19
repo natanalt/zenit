@@ -7,6 +7,7 @@ use crate::{
 };
 use glam::uvec2;
 use itertools::Itertools;
+use log::*;
 use std::io::{Read, Seek};
 use thiserror::Error;
 use wgpu::TextureFormat;
@@ -14,7 +15,6 @@ use zenit_lvl::{
     game::{D3DFormat, LevelTexture, LevelTextureFormat, LevelTextureFormatInfo, LevelTextureKind},
     node::{NodeHeader, NodeRead},
 };
-use log::*;
 
 pub enum LoadedTexture {
     Texture(TextureHandle),
@@ -36,7 +36,7 @@ pub enum TextureLoadError {
 }
 
 /// Loads a texture and registers it inside the asset manager.
-/// 
+///
 /// Any errors are logged, but not returned back. For better control, you may want to use
 /// [`load_texture`] instead.
 pub fn load_texture_as_asset(
@@ -68,14 +68,18 @@ pub fn load_texture(
     (mut r, node): (impl Read + Seek, NodeHeader),
     engine: &mut EngineBorrow,
 ) -> Result<(String, LoadedTexture), TextureLoadError> {
-    use TextureLoadError::*;
     use LevelTextureKind::*;
+    use TextureLoadError::*;
 
     let level_texture = LevelTexture::read_node_at(&mut r, node).map_err(|err| ParseError(err))?;
     let texture_name = level_texture.name.into_string().map_err(|_| BadName)?;
 
     // Choose a texture format feasible for loading
-    let LevelTextureFormat { info, faces, unfiltered } = level_texture
+    let LevelTextureFormat {
+        info,
+        faces,
+        unfiltered,
+    } = level_texture
         .formats
         .into_iter()
         .map(|format| (rank_texture_format(&format, engine), format))

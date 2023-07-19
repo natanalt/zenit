@@ -88,4 +88,3 @@ impl DeviceContext {
         (result, surface, sconfig)
     }
 }
-

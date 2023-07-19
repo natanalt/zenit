@@ -46,7 +46,10 @@ pub fn start(
                 let mut total_threads = 0;
 
                 raw_ec.globals.get_mut().add_any(EngineBus::new());
-                raw_ec.globals.get_mut().add_any(frame_profiler.history.clone());
+                raw_ec
+                    .globals
+                    .get_mut()
+                    .add_any(frame_profiler.history.clone());
 
                 f(&mut EngineBuilder {
                     scope: &scope,

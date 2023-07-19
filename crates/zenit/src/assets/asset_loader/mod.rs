@@ -1,8 +1,5 @@
 use super::ZENIT_BUILTIN_LVL;
-use crate::{
-    assets::texture_loader::load_texture_as_asset,
-    scene::EngineBorrow,
-};
+use crate::{assets::texture_loader::load_texture_as_asset, scene::EngineBorrow};
 use log::*;
 use std::io::{Cursor, Read, Seek};
 use zenit_lvl::node::{read_node_children, read_node_header};

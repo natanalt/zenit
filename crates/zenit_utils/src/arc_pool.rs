@@ -107,7 +107,7 @@ impl<T> ArcPool<T> {
     }
 
     /// Replaces a value in the pool with a new one.
-    /// 
+    ///
     /// ## Panics
     /// See [`Self::get_mut`].
     pub fn set(&mut self, handle: &ArcPoolHandle, value: T) -> T {
@@ -132,7 +132,9 @@ impl<T> ArcPool<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.values.iter().filter_map(|entry| Some(&entry.as_ref()?.1))
+        self.values
+            .iter()
+            .filter_map(|entry| Some(&entry.as_ref()?.1))
     }
 
     pub fn iter_handles(&self) -> impl Iterator<Item = (&T, ArcPoolHandle)> {
@@ -143,6 +145,8 @@ impl<T> ArcPool<T> {
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.values.iter_mut().filter_map(|entry| Some(&mut entry.as_mut()?.1))
+        self.values
+            .iter_mut()
+            .filter_map(|entry| Some(&mut entry.as_mut()?.1))
     }
 }

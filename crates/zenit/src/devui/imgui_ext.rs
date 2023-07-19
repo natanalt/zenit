@@ -1,6 +1,5 @@
 use imgui::Ui;
 
-
 /// Zenit-specific extensions to the imgui-rs API
 pub trait UiExt {
     fn bullet_field(&self, header: impl AsRef<str>, field: impl AsRef<str>);

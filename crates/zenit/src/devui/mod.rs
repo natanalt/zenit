@@ -12,14 +12,11 @@
 //! There's still a lot that this library doesn't properly support that I'd like to support
 //! eventually (and maybe contribute to upstream bindings). At least one thing I've noticed is
 //! lacking IME support, which I'd like to eventually support.
-//! 
+//!
 
 use crate::{
     engine::{EngineContext, FrameHistory, FrameTiming},
-    graphics::{
-        imgui_renderer::ImGuiRenderData,
-        TextureDescriptor, TextureWriteDescriptor,
-    },
+    graphics::{imgui_renderer::ImGuiRenderData, TextureDescriptor, TextureWriteDescriptor},
     scene::EngineBorrow,
 };
 use glam::*;
@@ -35,10 +32,10 @@ use winit::{
     window::{CursorIcon as MouseCursor, Window},
 };
 
-mod menu_bar;
 mod imgui_demo;
-mod viewers;
 mod imgui_ext;
+mod menu_bar;
+mod viewers;
 
 pub struct DevUi {
     imgui: imgui::Context,
@@ -184,7 +181,9 @@ impl DevUi {
             }
         }
 
-        engine.renderer.submit_imgui(ImGuiRenderData::new(imgui.render()));
+        engine
+            .renderer
+            .submit_imgui(ImGuiRenderData::new(imgui.render()));
     }
 
     #[allow(dead_code)]
@@ -331,22 +330,14 @@ impl DevUi {
 }
 
 pub trait DevUiWidget: Send + Sync {
-    fn process_ui(
-        &mut self,
-        ui: &mut imgui::Ui,
-        engine: &mut EngineBorrow,
-    ) -> WidgetResponse;
+    fn process_ui(&mut self, ui: &mut imgui::Ui, engine: &mut EngineBorrow) -> WidgetResponse;
 }
 
 impl<F> DevUiWidget for F
 where
     F: FnMut(&mut imgui::Ui, &mut EngineBorrow) -> WidgetResponse + Send + Sync,
 {
-    fn process_ui(
-        &mut self,
-        ui: &mut imgui::Ui,
-        engine: &mut EngineBorrow,
-    ) -> WidgetResponse {
+    fn process_ui(&mut self, ui: &mut imgui::Ui, engine: &mut EngineBorrow) -> WidgetResponse {
         (self)(ui, engine)
     }
 }

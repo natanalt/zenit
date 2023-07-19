@@ -23,11 +23,11 @@
 //! mipmaps in the dedicated format, and so on.
 //!
 //! Code that actually parses serialized asset files is located in the [`crate::assets`] module.
-//! 
+//!
 //! ## How to render a scene
 //! The renderer fetches 3D scene data from the ECS. Here's an example workflow of creating a scene
 //! that will be detected by the render system:
-//! 
+//!
 //! 1. Create an entity with a [`SceneComponent`].
 //!    - This component defines global settings of the scene, such as the skybox, fog settings, etc.
 //! 2. Create render entities with [`RenderComponent`]s and attach them to the scene.
@@ -69,11 +69,9 @@ mod device_context;
 pub const RENDER_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth24Plus;
 
-
 /// Various feature flags of the renderer, determined at runtime from the engine's settings and the
 /// user's hardware configuration.
 pub struct RenderCapabilities {
     /// Specifies whether BC/DXT compression is allowed.
     pub allow_bc_compression: bool,
 }
-

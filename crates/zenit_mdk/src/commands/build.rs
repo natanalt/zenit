@@ -4,7 +4,7 @@ use serde::Deserialize;
 use std::{
     fs::{self, File},
     io::BufWriter,
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
 };
 use zenit_lvl::node::NodeWriter;
 use zenit_utils::{ok, AnyResult};
@@ -58,7 +58,7 @@ impl crate::Command for BuildCommand {
         for dir in spec.shader_preprocessor.shared {
             for dir_entry_result in fs::read_dir(&dir)? {
                 let dir_entry = dir_entry_result?;
-                
+
                 if !dir_entry.file_type()?.is_file() {
                     continue;
                 }

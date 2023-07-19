@@ -1,8 +1,8 @@
-use std::path::PathBuf;
 use super::game_root::GameRoot;
 use crate::graphics::{CubemapHandle, Renderer, TextureDescriptor, TextureHandle};
 use ahash::AHashMap;
 use glam::uvec2;
+use std::path::PathBuf;
 use wgpu::TextureFormat;
 
 /// The asset manager is responsible for:

@@ -1,5 +1,5 @@
-use imgui::Ui;
 use crate::scene::EngineBorrow;
+use imgui::Ui;
 
 use super::WidgetResponse;
 
@@ -21,13 +21,24 @@ pub fn menu_bar(ui: &mut Ui, _: &mut EngineBorrow) -> WidgetResponse {
                     ui.table_set_column_index(0);
                     ui.text_disabled("Commit");
                     ui.table_next_column();
-                    ui.text(concat!(env!("VERGEN_GIT_SHA"), " (", env!("VERGEN_GIT_BRANCH"), " branch)"));
+                    ui.text(concat!(
+                        env!("VERGEN_GIT_SHA"),
+                        " (",
+                        env!("VERGEN_GIT_BRANCH"),
+                        " branch)"
+                    ));
 
                     ui.table_next_row();
                     ui.table_set_column_index(0);
                     ui.text_disabled("Compiler");
                     ui.table_next_column();
-                    ui.text(concat!("rustc ", env!("VERGEN_RUSTC_SEMVER"), " (", env!("VERGEN_RUSTC_CHANNEL"), ")"));
+                    ui.text(concat!(
+                        "rustc ",
+                        env!("VERGEN_RUSTC_SEMVER"),
+                        " (",
+                        env!("VERGEN_RUSTC_CHANNEL"),
+                        ")"
+                    ));
 
                     ui.table_next_row();
                     ui.table_set_column_index(0);

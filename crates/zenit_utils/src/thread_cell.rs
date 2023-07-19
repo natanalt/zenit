@@ -7,7 +7,7 @@ use std::{
 
 /// The thread cell stores types that aren't [`Send`], while itself being [`Send`] by ensuring that
 /// the underlying value can only be accessed on the creator thread.
-/// 
+///
 /// This structures stores the thread ID of the object's owner within itself, guaranteeing that every
 /// access happens on the owner thread.
 ///
@@ -31,7 +31,7 @@ impl<T> ThreadCell<T> {
     }
 
     /// Returns an immutable reference to the underlying value.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the function isn't called from the owner thread.
     pub fn get(&self) -> &T {
@@ -40,7 +40,7 @@ impl<T> ThreadCell<T> {
     }
 
     /// Returns a mutable reference to the underlying value.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the function isn't called from the owner thread.
     pub fn get_mut(&mut self) -> &mut T {
@@ -49,7 +49,7 @@ impl<T> ThreadCell<T> {
     }
 
     /// Consumes the cell, returning the underlying value.
-    /// 
+    ///
     /// ## Panics
     /// Panics if the function isn't called from the owner thread.
     pub fn take(self) -> T {

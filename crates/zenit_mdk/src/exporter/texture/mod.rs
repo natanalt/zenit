@@ -46,7 +46,7 @@ impl TextureSpecification {
             mipmaps,
             unfiltered,
         } = self;
-    
+
         let mut texture = LevelTexture {
             name: CString::new(name)?,
             formats: Vec::with_capacity(formats.len()),
@@ -61,13 +61,13 @@ impl TextureSpecification {
                 result
             },
         };
-    
+
         let image = image::open(file)?.into_rgba8();
         ensure!(image.width() <= i16::MAX as u32, "image too large");
         ensure!(image.height() <= i16::MAX as u32, "image too large");
         let width = image.width() as u16;
         let height = image.height() as u16;
-    
+
         let mipmaps = match mipmaps {
             Some(user_amount) => user_amount,
             None => {
@@ -75,7 +75,7 @@ impl TextureSpecification {
                 width.max(height).ilog2() as u16 + 1
             }
         };
-    
+
         for format in formats {
             let generated_mipmaps = generate_mipmaps(
                 &image.as_raw(),
@@ -83,7 +83,7 @@ impl TextureSpecification {
                 height as usize,
                 mipmaps as usize,
             );
-    
+
             use CubemapFaces::*;
             use TextureKind::*;
             texture.formats.push(LevelTextureFormat {
@@ -112,7 +112,7 @@ impl TextureSpecification {
                 },
             });
         }
-    
+
         Ok(texture)
     }
 }

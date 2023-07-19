@@ -1,8 +1,8 @@
 use crate::graphics::Renderer;
 use glam::UVec2;
-use zenit_lvl::game::D3DFormat;
 use std::sync::Arc;
 use wgpu::TextureFormat;
+use zenit_lvl::game::D3DFormat;
 use zenit_proc::ext_repr;
 use zenit_utils::ArcPoolHandle;
 

@@ -1,12 +1,11 @@
-use crate::assets::shader_loader::load_builtin_shaders;
 use super::{
     imgui_renderer::{ImGuiRenderData, ImGuiTexture},
     system::GraphicsSystem,
     BuiltScene, CameraDescriptor, CameraHandle, CameraResource, CubemapDescriptor, CubemapHandle,
-    CubemapResource, DeviceContext, RenderCapabilities, ShaderResource,
-    SkyboxDescriptor, SkyboxHandle, SkyboxResource, TextureDescriptor, TextureHandle,
-    TextureResource,
+    CubemapResource, DeviceContext, RenderCapabilities, ShaderResource, SkyboxDescriptor,
+    SkyboxHandle, SkyboxResource, TextureDescriptor, TextureHandle, TextureResource,
 };
+use crate::assets::shader_loader::load_builtin_shaders;
 use ahash::AHashMap;
 use imgui::TextureId;
 use std::sync::Arc;

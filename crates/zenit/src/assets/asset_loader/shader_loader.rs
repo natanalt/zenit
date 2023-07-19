@@ -1,10 +1,19 @@
-use std::{io::{Read, Seek, Cursor}, borrow::Cow};
+use crate::{
+    assets::ZENIT_BUILTIN_LVL,
+    graphics::{Renderer, ShaderResource},
+};
+use log::*;
+use std::{
+    borrow::Cow,
+    io::{Cursor, Read, Seek},
+};
 use thiserror::Error;
 use wgpu::{ShaderModuleDescriptor, ShaderSource};
-use zenit_lvl::{node::{NodeHeader, NodeRead, read_node_children, read_node_header}, zext::LevelWgslShader};
-use zenit_utils::{AnyResult, ok};
-use crate::{graphics::{ShaderResource, Renderer}, assets::ZENIT_BUILTIN_LVL};
-use log::*;
+use zenit_lvl::{
+    node::{read_node_children, read_node_header, NodeHeader, NodeRead},
+    zext::LevelWgslShader,
+};
+use zenit_utils::{ok, AnyResult};
 
 #[derive(Debug, Error)]
 pub enum ShaderLoadError {
@@ -26,11 +35,13 @@ pub fn load_shader(
     let name = node.name.into_string().map_err(|_| BadName)?;
     let code = node.code.into_string().map_err(|_| BadCode)?;
 
-    let module = renderer.dc.device.create_shader_module(ShaderModuleDescriptor {
-        label: Some(&name),
-        source: ShaderSource::Wgsl(Cow::Borrowed(&code)),
-    });
-
+    let module = renderer
+        .dc
+        .device
+        .create_shader_module(ShaderModuleDescriptor {
+            label: Some(&name),
+            source: ShaderSource::Wgsl(Cow::Borrowed(&code)),
+        });
 
     Ok((name.clone(), ShaderResource { name, code, module }))
 }

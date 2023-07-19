@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use crate::graphics::{
+    CameraDescriptor, CameraHandle, Renderer, SceneBuilder, SkyboxDescriptor, SkyboxHandle,
+};
 use glam::{uvec2, vec4, Affine3A};
 use imgui::{TextureId, Ui};
+use std::sync::Arc;
 use zenit_utils::math::AngleExt;
-use crate::graphics::{CameraHandle, SkyboxHandle, Renderer, CameraDescriptor, SkyboxDescriptor, SceneBuilder};
 
 pub struct ModelPreview {
     texture_id: Arc<TextureId>,
@@ -33,7 +35,7 @@ impl ModelPreview {
             camera,
             skybox,
             cached_size: [-1.0, -1.0],
-            id: zenit_utils::counter::next()
+            id: zenit_utils::counter::next(),
         }
     }
 
@@ -53,7 +55,7 @@ impl ModelPreview {
                     (content_size[0] * content_scale[0]) as u32,
                     (content_size[1] * content_scale[1]) as u32,
                 );
-                
+
                 if framebuffer_size.x == 0 || framebuffer_size.y == 0 {
                     should_render_scene = false;
                     return;
@@ -67,7 +69,7 @@ impl ModelPreview {
 
                 imgui::Image::new(*self.texture_id, content_size).build(ui);
             });
-            
+
         // Enqueue the render
         if should_render_scene {
             let mut scene = SceneBuilder::new(renderer);

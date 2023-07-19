@@ -1,8 +1,8 @@
 use crate::graphics::Renderer;
 use glam::*;
-use zenit_lvl::game::D3DFormat;
 use std::sync::Arc;
 use wgpu::TextureFormat;
+use zenit_lvl::game::D3DFormat;
 use zenit_utils::ArcPoolHandle;
 
 /// Handle to a 2D, 1 layer texture.

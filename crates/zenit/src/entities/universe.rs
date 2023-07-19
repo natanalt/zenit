@@ -99,13 +99,11 @@ impl Universe {
     }
 
     /// Creates a new entity with a single given component.
-    /// 
+    ///
     /// ## Panics
     /// See [`Self::create_entity`]
     pub fn create_entity_with(&mut self, component: impl Component) -> Entity {
-        self.build_entity()
-            .with_component(component)
-            .finish()
+        self.build_entity().with_component(component).finish()
     }
 
     /// Creates a new instance of the [`EntityBuilder`]. It's basically a shorthand for its own

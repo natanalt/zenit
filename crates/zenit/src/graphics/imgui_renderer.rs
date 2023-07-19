@@ -426,7 +426,7 @@ impl ImguiRenderer {
             self.textures.insert(*id, texture);
             self.texture_handles.push(id);
         }
-        
+
         // Handle the queued deletion textures
         for id in self.cleanup_queue.drain(..) {
             self.textures.remove(&id);
