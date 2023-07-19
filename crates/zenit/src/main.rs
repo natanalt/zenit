@@ -5,7 +5,7 @@
 
 use crate::{
     assets::{AssetLoader, AssetManager, GameRoot},
-    graphics::{system::RenderSystem, Renderer},
+    graphics::Renderer,
     scene::{system::SceneSystem, EngineBorrow}, entities::Universe,
 };
 use clap::Parser;
@@ -64,11 +64,10 @@ pub fn main() -> ! {
 
     let captured_window = window.clone();
     let (engine_context, engine_thread_handle) = engine::start(move |builder| {
-        
         let window = captured_window.clone();
         
         let globals = builder.global_state();
-        let (mut renderer, render_system_dc, surface, sconfig) = Renderer::new(&window);
+        let (mut renderer, render_system) = Renderer::new(&window);
         let mut assets = AssetManager::new(game_root.clone(), &mut renderer);
         let mut universe = Universe::new();
         
@@ -84,13 +83,7 @@ pub fn main() -> ! {
             .expect("could not load built-in assets");
 
         builder
-            .with_system(RenderSystem::new(
-                &mut renderer,
-                render_system_dc,
-                window.clone(),
-                surface,
-                sconfig,
-            ))
+            .with_system(render_system)
             .with_system(SceneSystem::new());
     
         let gc = builder.global_state();

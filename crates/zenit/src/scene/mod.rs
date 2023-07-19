@@ -2,10 +2,6 @@ use crate::{assets::AssetManager, engine::GlobalState, entities::Universe, graph
 
 pub mod system;
 
-#[doc(inline)]
-pub use scene_builder::*;
-mod scene_builder;
-
 pub struct EngineBorrow<'a> {
     pub globals: &'a GlobalState,
     pub assets: &'a mut AssetManager,

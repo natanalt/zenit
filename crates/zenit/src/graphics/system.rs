@@ -1,31 +1,33 @@
-use super::{frame_state::{FrameState, CameraState, FrameScene}, imgui_renderer::ImguiRenderer, DeviceContext, Renderer, CameraGpuResources};
+use super::{
+    imgui_renderer::ImguiRenderer, BuiltScene, CameraGpuResources, DeviceContext, PendingFrame,
+    Renderer,
+};
 use crate::{
     engine::{EngineContext, GlobalState, System},
-    entities::Universe,
     graphics::SkyboxRenderer,
 };
 use parking_lot::Mutex;
-use std::sync::Arc;
-use wgpu::*;
-use winit::{window::Window, dpi::PhysicalSize, event::WindowEvent};
 use rayon::prelude::*;
+use std::{mem, sync::Arc};
+use wgpu::*;
+use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
 /// The render system handles submitting render commands and displaying everything in general.
-pub struct RenderSystem {
+pub struct GraphicsSystem {
     /// Note, this Arc should never be cloned - only 2/0 strong/weak references are allowed.
     dc: Arc<DeviceContext>,
 
-    pub window: Arc<Window>,
-    pub surface: Surface,
-    pub sconfig: SurfaceConfiguration,
+    window: Arc<Window>,
+    surface: Surface,
+    sconfig: SurfaceConfiguration,
 
-    pub imgui_renderer: ImguiRenderer,
-    pub skybox_renderer: SkyboxRenderer,
+    imgui_renderer: ImguiRenderer,
+    skybox_renderer: SkyboxRenderer,
 
-    pub pending_frame: Option<FrameState>,
+    pending_frame: Option<PendingFrame>,
 }
 
-impl RenderSystem {
+impl GraphicsSystem {
     pub fn new(
         renderer: &mut Renderer,
         dc: Arc<DeviceContext>,
@@ -50,9 +52,9 @@ impl RenderSystem {
     }
 }
 
-impl System for RenderSystem {
+impl System for GraphicsSystem {
     fn label(&self) -> &'static str {
-        "Render System"
+        "Graphics System"
     }
 
     fn main_process(&mut self, _ec: &EngineContext, gc: &GlobalState) {
@@ -127,21 +129,19 @@ impl System for RenderSystem {
         let current_view = current_texture.texture.create_view(&TextureViewDescriptor {
             label: Some("Framebuffer view"),
             ..Default::default()
-           });
+        });
 
-        let mut command_buffers = Vec::with_capacity(pending_frame.targets.len() + 1);
-
-        
+        let mut command_buffers = Vec::with_capacity(pending_frame.scenes.len() + 1);
 
         // Render all pending scenes in parallel
         pending_frame
-            .targets
+            .scenes
             .into_par_iter()
-            .map(|(camera, scene)| self.render_scene(camera, scene))
+            .map(|scene| self.render_scene(scene))
             .collect_into_vec(&mut command_buffers);
 
         // TODO: add this to the above parallel generator
-        if let Some(imgui_data) = pending_frame.imgui_frame {
+        if let Some(imgui_data) = pending_frame.imgui_render_data {
             command_buffers.push(self.imgui_renderer.render_imgui(
                 &self.dc,
                 imgui_data,
@@ -155,21 +155,24 @@ impl System for RenderSystem {
 
     fn post_process(&mut self, ec: &EngineContext) {
         let gc = ec.globals.read();
-        let uni = gc.read::<Universe>();
         let mut renderer = gc.lock::<Renderer>();
 
-        // Note the order here, FrameState::collect_state takes the ImguiFrame, while
-        // the ImGui renderer only mutably borrows it.
-        self.imgui_renderer.prepare_next_frame(&mut renderer);
-        self.pending_frame = Some(FrameState::collect_state(&uni, &mut renderer));
+        let mut pending_frame = mem::take(&mut renderer.pending_frame);
+        self.imgui_renderer.setup_textures(
+            &mut renderer,
+            pending_frame.imgui_new_textures.drain(..),
+            pending_frame.imgui_new_font.take(),
+        );
+
+        self.pending_frame = Some(pending_frame);
 
         renderer.collect_garbage();
     }
 }
 
-impl RenderSystem {
+impl GraphicsSystem {
     /// Called when the window surface changed, for example by getting resized.
-    /// 
+    ///
     /// In the future, this function will also handle reloading of resources dependent on the surface
     /// dimensions.
     fn reconfigure_surface(&mut self) {
@@ -179,7 +182,7 @@ impl RenderSystem {
     }
 
     /// Encodes a scene into a command buffer.
-    fn render_scene(&self, camera: CameraState, scene: Arc<FrameScene>) -> wgpu::CommandBuffer {
+    fn render_scene(&self, scene: BuiltScene) -> wgpu::CommandBuffer {
         let device = &self.dc.device;
 
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
@@ -188,20 +191,25 @@ impl RenderSystem {
 
         encoder.push_debug_group("scene rendering");
 
-        let camera_resources = camera.gpu_resources.lock();
+        for (camera, _transform) in scene.targets {
+            encoder.push_debug_group("camera instance");
 
-        if let Some(skybox_resources) = &scene.skybox_resources {
-            let skybox_resources = skybox_resources.lock();
-            self.skybox_renderer.render_skybox(
-                &self.dc,
-                &mut encoder,
-                &camera_resources,
-                &skybox_resources,
-            );
+            let camera_resources = camera.lock();
+
+            if let Some(skybox_resources) = &scene.skybox {
+                let skybox_resources = skybox_resources.lock();
+                self.skybox_renderer.render_skybox(
+                    &self.dc,
+                    &mut encoder,
+                    &camera_resources,
+                    &skybox_resources,
+                );
+            }
+
+            encoder.pop_debug_group();
         }
 
         encoder.pop_debug_group();
-
         encoder.finish()
     }
 }

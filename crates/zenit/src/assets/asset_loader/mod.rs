@@ -1,6 +1,6 @@
 use super::ZENIT_BUILTIN_LVL;
 use crate::{
-    assets::{shader_loader::load_shader_as_asset, texture_loader::load_texture_as_asset},
+    assets::texture_loader::load_texture_as_asset,
     scene::EngineBorrow,
 };
 use log::*;
@@ -30,7 +30,6 @@ impl<'a> AssetLoader<'a> {
             // For clarity, keep the loader invocations as one-liners.
             match child.name.as_bytes() {
                 b"tex_" => load_texture_as_asset((&mut r, child), self.engine),
-                b"WGSL" => load_shader_as_asset((&mut r, child), self.engine),
                 _ => {}
             }
         }

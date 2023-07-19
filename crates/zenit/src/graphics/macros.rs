@@ -59,3 +59,21 @@ macro_rules! bind_group_layout_array {
         ]
     }
 }
+
+#[macro_export]
+macro_rules! render_resource_handle {
+    (
+        $(#[$attributes:meta])*
+        $visibility:vis $name:ident
+    ) => {
+        $(#[$attributes])*
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        $visibility struct $name(::std::sync::Arc<()>);
+
+        impl $name {
+            pub fn live_references(&self) -> usize {
+                self.0.live_references()
+            }
+        }
+    }
+}

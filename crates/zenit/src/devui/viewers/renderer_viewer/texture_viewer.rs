@@ -1,15 +1,13 @@
 use crate::{
-    devui::imgui_ext::UiExt,
-    graphics::{
-        CubemapHandle, TextureHandle,
-    },
+    devui::{imgui_ext::UiExt, viewers::model_preview::ModelPreview},
+    graphics::{CubemapHandle, TextureHandle},
     scene::EngineBorrow,
 };
 use glam::*;
 use imgui::Ui;
 
 pub(super) struct TextureViewer {
-    selected_texture: Option<SelectedTexture>,
+    selected_texture: Option<(SelectedTexture, ModelPreview)>,
 }
 
 impl Default for TextureViewer {
@@ -56,17 +54,18 @@ impl super::RendererViewerTab for TextureViewer {
 
         let _group_token = ui.begin_group();
 
-        match &mut self.selected_texture {
-            Some(SelectedTexture::Texture(handle)) => {
-                let texture = engine.renderer.textures.get(handle);
+        let preview_size = [0.0, -ui.text_line_height() * 8.0];
 
-                ui.text(&texture.label);
+        match &mut self.selected_texture {
+            Some((SelectedTexture::Texture(handle), model_preview)) => {
+                ui.text(&renderer.textures.get(handle).label);
                 ui.same_line();
                 ui.text_disabled("(2D texture)");
                 ui.separator();
-
-                ui.text("TODO: Render the scene");
-
+                
+                model_preview.display(ui, renderer, preview_size);
+                
+                let texture = renderer.textures.get(handle);
                 if let Some(_) = ui.begin_table("TextureInfo", 2) {
                     ui.table_next_row();
                     ui.table_set_column_index(0);
@@ -119,21 +118,21 @@ impl super::RendererViewerTab for TextureViewer {
                     });
                 }
             }
-            Some(SelectedTexture::Cubemap(handle)) => {
-                let cubemap = engine.renderer.cubemaps.get(&handle);
+            Some((SelectedTexture::Cubemap(handle), model_preview)) => {
+                let cubemap = renderer.cubemaps.get(&handle);
 
                 ui.text(&cubemap.label);
                 ui.same_line();
                 ui.text_disabled("(cubemap texture)");
                 ui.separator();
 
-                ui.text("TODO: render the model preview");
+                model_preview.display(ui, renderer, preview_size);
             }
             None => ui.text_disabled("(No texture selected)"),
         }
 
         if let Some(texture_to_select) = texture_to_select {
-            self.selected_texture = Some(texture_to_select);
+            self.selected_texture = Some((texture_to_select, ModelPreview::new(renderer)));
         }
     }
 }
@@ -149,17 +148,17 @@ trait SelectedTextureExt {
     fn matches_cubemap(&self, other: &CubemapHandle) -> bool;
 }
 
-impl SelectedTextureExt for Option<SelectedTexture> {
+impl SelectedTextureExt for Option<(SelectedTexture, ModelPreview)> {
     fn matches_texture(&self, other: &TextureHandle) -> bool {
         match self {
-            Some(SelectedTexture::Texture(handle)) => handle == other,
+            Some((SelectedTexture::Texture(handle), _)) => handle == other,
             _ => false,
         }
     }
 
     fn matches_cubemap(&self, other: &CubemapHandle) -> bool {
         match self {
-            Some(SelectedTexture::Cubemap(handle)) => handle == other,
+            Some((SelectedTexture::Cubemap(handle), _)) => handle == other,
             _ => false,
         }
     }

@@ -1,16 +1,10 @@
 use imgui::Ui;
+use crate::scene::EngineBorrow;
 
-use crate::{entities::Universe, scene::EngineBorrow};
-use super::{DevUiComponent, DevUiTextures};
+use super::WidgetResponse;
 
-pub fn add_menu_bar(uni: &mut Universe) {
-    uni.create_entity_with(DevUiComponent {
-        widget: Some(Box::new(menu_bar)),
-    });
-}
-
-fn menu_bar(ui: &mut Ui, engine: &mut EngineBorrow, _: &mut DevUiTextures) -> bool {
-    let universe = &mut engine.universe;
+pub fn menu_bar(ui: &mut Ui, _: &mut EngineBorrow) -> WidgetResponse {
+    let mut response = WidgetResponse::default();
 
     ui.main_menu_bar(|| {
         ui.text_disabled("Zenit Engine");
@@ -49,11 +43,11 @@ fn menu_bar(ui: &mut Ui, engine: &mut EngineBorrow, _: &mut DevUiTextures) -> bo
         ui.menu("Tools", || {
             for (name, callback) in super::viewers::TOOLS {
                 if ui.menu_item(name) {
-                    (callback)(universe);
+                    response.add_widget((callback)());
                 }
             }
         });
     });
 
-    true
+    response
 }

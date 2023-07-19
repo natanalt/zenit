@@ -1,6 +1,5 @@
 use crate::{
-    devui::{imgui_ext::UiExt, DevUiComponent, DevUiTextures, DevUiWidget},
-    entities::Universe,
+    devui::{imgui_ext::UiExt, DevUiWidget, WidgetResponse},
     scene::EngineBorrow,
 };
 use glam::*;
@@ -17,14 +16,6 @@ pub struct RendererViewer {
     tabs: Vec<(&'static str, Box<dyn RendererViewerTab>)>,
 }
 
-impl RendererViewer {
-    pub fn add(uni: &mut Universe) {
-        uni.create_entity_with(DevUiComponent {
-            widget: Some(Box::new(RendererViewer::default())),
-        });
-    }
-}
-
 impl Default for RendererViewer {
     fn default() -> Self {
         Self {
@@ -32,32 +23,25 @@ impl Default for RendererViewer {
             tabs: vec![
                 ("Textures", Box::new(TextureViewer::default()) as _),
                 ("Shaders", Box::new(ShaderViewer::default()) as _),
-            ]
+            ],
         }
     }
 }
 
 impl DevUiWidget for RendererViewer {
-    fn process_ui(
-        &mut self,
-        ui: &mut Ui,
-        engine: &mut EngineBorrow,
-        _textures: &mut DevUiTextures,
-    ) -> bool {
+    fn process_ui(&mut self, ui: &mut Ui, engine: &mut EngineBorrow) -> WidgetResponse {
         let mut opened = true;
-        let window_token = ui
+        let Some(_window_token) = ui
             .window(format!("Renderer Tools##{}", self.id))
             .opened(&mut opened)
             .size([650.0, 500.0], imgui::Condition::Appearing)
-            .begin();
-        if window_token.is_none() {
-            return opened;
-        }
+            .begin()
+        else { return WidgetResponse::CLOSED };
 
-        let tabs_token = TabBar::new("RendererTabs").reorderable(true).begin(ui);
-        if tabs_token.is_none() {
-            return opened;
-        }
+        let Some(_tabs_token) = TabBar::new("RendererTabs").reorderable(true).begin(ui)
+        else {
+            return WidgetResponse::keep_opened(opened);
+        };
 
         let renderer = &mut engine.renderer;
         TabItem::new("General").build(ui, || {
@@ -73,7 +57,7 @@ impl DevUiWidget for RendererViewer {
                     driver,
                     driver_info,
                     backend,
-                } = renderer.dc().adapter.get_info();
+                } = renderer.dc.adapter.get_info();
 
                 ui.bullet_field("Adapter", format!("{}", name));
                 ui.same_line();
@@ -101,6 +85,13 @@ impl DevUiWidget for RendererViewer {
                 ui.bullet_field("Live cameras", format!("{}", renderer.cameras.count_elements()));
                 ui.bullet_field("Live skyboxes", format!("{}", renderer.skyboxes.count_elements()));
                 ui.bullet_field("Loaded shaders", format!("{}", renderer.shaders.len()));
+
+                // lol
+                if ui.button("Print wgpu memory report to console") {
+                    eprintln!();
+                    eprintln!("{:#?}", renderer.dc.instance.generate_report());
+                    eprintln!();
+                }
             });
         });
 
@@ -115,7 +106,7 @@ impl DevUiWidget for RendererViewer {
             }
         }
 
-        opened
+        WidgetResponse::keep_opened(opened)
     }
 }
 

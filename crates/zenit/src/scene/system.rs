@@ -26,11 +26,8 @@ impl System for SceneSystem {
     }
 
     fn first_frame(&mut self, ec: &EngineContext) {
-        let gs = ec.globals.read();
-        let mut universe = gs.write();
-
         // We initialize the DevUi on the scene system thread due to imgui-rs constraints
-        self.devui = Some(ThreadCell::new(DevUi::new(ec, &mut universe)));
+        self.devui = Some(ThreadCell::new(DevUi::new(ec)));
     }
 
     fn main_process(&mut self, _ec: &EngineContext, gs: &GlobalState) {

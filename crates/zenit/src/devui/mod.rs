@@ -16,10 +16,9 @@
 
 use crate::{
     engine::{EngineContext, FrameHistory, FrameTiming},
-    entities::{Component, Universe},
     graphics::{
-        imgui_renderer::{ImguiFrame, ImguiRenderData, ImguiTexture},
-        TextureDescriptor, TextureWriteDescriptor, TextureHandle, CameraHandle,
+        imgui_renderer::ImGuiRenderData,
+        TextureDescriptor, TextureWriteDescriptor,
     },
     scene::EngineBorrow,
 };
@@ -41,22 +40,23 @@ mod imgui_demo;
 mod viewers;
 mod imgui_ext;
 
-#[derive(Debug)]
 pub struct DevUi {
     imgui: imgui::Context,
     window: Arc<Window>,
     current_cursor_cache: Option<imgui::MouseCursor>,
 
     font_needs_update: bool,
-    texture_id_accumulator: usize,
+
+    widgets: Vec<Box<dyn DevUiWidget>>,
 }
 
 impl DevUi {
     /// Initializes DevUi and the underlying Dear ImGui context.
     ///
     /// The ImGui initialization includes setting all backend flags for the renderer as well.
-    pub fn new(engine: &EngineContext, uni: &mut Universe) -> Self {
-        menu_bar::add_menu_bar(uni);
+    pub fn new(engine: &EngineContext) -> Self {
+        let mut widgets = Vec::with_capacity(16);
+        widgets.push(Box::new(menu_bar::menu_bar) as _);
 
         let globals = engine.globals.read();
 
@@ -84,7 +84,7 @@ impl DevUi {
             window,
             current_cursor_cache: None,
             font_needs_update: true,
-            texture_id_accumulator: 1,
+            widgets,
         }
     }
 
@@ -128,12 +128,6 @@ impl DevUi {
             }
         }
 
-        let mut textures = DevUiTextures {
-            accumulator: &mut self.texture_id_accumulator,
-            new_textures: vec![],
-            textures_to_remove: vec![],
-        };
-
         if self.font_needs_update {
             self.font_needs_update = false;
 
@@ -157,35 +151,21 @@ impl DevUi {
                 data: atlas.data,
             });
 
-            textures
-                .new_textures
-                .push((TextureId::new(0), ImguiTexture::from_texture(texture)))
+            engine.renderer.update_imgui_font(texture);
         }
 
         // UI rendering
         let ui = imgui.new_frame();
 
-        // To allow widgets to get `&mut EngineBorrow` we need to not hold a borrow on the universe
-        // So, we just collect it to a vector
-        let widgets = engine
-            .universe
-            .get_components_mut::<DevUiComponent>()
-            .filter_map(|(entity, component)| Some((entity, component.widget.take()?)))
-            .collect::<Vec<_>>();
+        let mut widgets_to_add = vec![];
 
-        for (entity, mut widget) in widgets {
-            let keep_widget = widget.process_ui(ui, engine, &mut textures);
+        self.widgets.retain_mut(|widget| {
+            let WidgetResponse { close, new_widgets } = widget.process_ui(ui, engine);
+            widgets_to_add.extend(new_widgets.into_iter());
+            !close
+        });
 
-            if keep_widget {
-                engine
-                    .universe
-                    .get_component_mut::<DevUiComponent>(entity)
-                    .unwrap()
-                    .widget = Some(widget);
-            } else {
-                engine.universe.destroy_entity(entity);
-            }
-        }
+        self.widgets.extend(widgets_to_add.into_iter());
 
         // Post-frame setup
         if cursor_change_allowed {
@@ -204,11 +184,7 @@ impl DevUi {
             }
         }
 
-        engine.renderer.imgui_frame = Some(ImguiFrame {
-            draw_data: ImguiRenderData::new(imgui.render()),
-            new_textures: textures.new_textures,
-            textures_to_remove: textures.textures_to_remove,
-        });
+        engine.renderer.submit_imgui(ImGuiRenderData::new(imgui.render()));
     }
 
     #[allow(dead_code)]
@@ -354,67 +330,64 @@ impl DevUi {
     }
 }
 
-pub struct DevUiTextures<'a> {
-    accumulator: &'a mut usize,
-    new_textures: Vec<(TextureId, ImguiTexture)>,
-    textures_to_remove: Vec<TextureId>,
-}
-
-impl<'a> DevUiTextures<'a> {
-    pub fn add_any_texture(&mut self, texture: ImguiTexture) -> TextureId {
-        let id = self.next_texture_id();
-        self.new_textures.push((id, texture));
-        id
-    }
-
-    pub fn add_texture(&mut self, texture: TextureHandle) -> TextureId {
-        self.add_any_texture(ImguiTexture::from_texture(texture))
-    }
-
-    pub fn add_camera(&mut self, camera: CameraHandle) -> TextureId {
-        self.add_any_texture(ImguiTexture::from_camera(camera))
-    }
-
-    pub fn remove_texture(&mut self, id: TextureId) {
-        self.textures_to_remove.push(id);
-    }
-
-    fn next_texture_id(&mut self) -> imgui::TextureId {
-        let id = *self.accumulator;
-        *self.accumulator = id
-            .checked_add(1)
-            .expect("somehow the texture ID accumulator overflowed");
-        imgui::TextureId::new(id)
-    }
-}
-
-pub struct DevUiComponent {
-    /// The widget is taken out during processing
-    pub widget: Option<Box<dyn DevUiWidget>>,
-}
-
-impl Component for DevUiComponent {}
-
 pub trait DevUiWidget: Send + Sync {
     fn process_ui(
         &mut self,
         ui: &mut imgui::Ui,
         engine: &mut EngineBorrow,
-        textures: &mut DevUiTextures,
-    ) -> bool;
+    ) -> WidgetResponse;
 }
 
 impl<F> DevUiWidget for F
 where
-    F: FnMut(&mut imgui::Ui, &mut EngineBorrow, &mut DevUiTextures) -> bool + Send + Sync,
+    F: FnMut(&mut imgui::Ui, &mut EngineBorrow) -> WidgetResponse + Send + Sync,
 {
     fn process_ui(
         &mut self,
         ui: &mut imgui::Ui,
         engine: &mut EngineBorrow,
-        textures: &mut DevUiTextures,
-    ) -> bool {
-        (self)(ui, engine, textures)
+    ) -> WidgetResponse {
+        (self)(ui, engine)
+    }
+}
+
+#[derive(Default)]
+pub struct WidgetResponse {
+    pub close: bool,
+    pub new_widgets: Vec<Box<dyn DevUiWidget>>,
+}
+
+impl WidgetResponse {
+    pub const KEEP_OPEN: Self = Self {
+        close: false,
+        new_widgets: Vec::new(),
+    };
+
+    pub const CLOSED: Self = Self {
+        close: true,
+        new_widgets: Vec::new(),
+    };
+
+    pub fn keep_closed(closed: bool) -> Self {
+        Self {
+            close: closed,
+            new_widgets: Vec::new(),
+        }
+    }
+
+    pub fn keep_opened(opened: bool) -> Self {
+        Self {
+            close: !opened,
+            new_widgets: Vec::new(),
+        }
+    }
+
+    pub fn close(&mut self) {
+        self.close = true;
+    }
+
+    pub fn add_widget(&mut self, widget: impl Into<Box<dyn DevUiWidget>>) {
+        self.new_widgets.push(widget.into());
     }
 }
 
